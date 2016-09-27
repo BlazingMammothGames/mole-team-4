@@ -1,7 +1,16 @@
 -cp src
 -main Main
 
--lib vellum
 -lib edge
+-lib howlerjs
+-lib promhx
 
--js bin/game.js
+--macro macros.Assets.copyProjectAssets()
+-dce full
+
+-debug
+
+-js docs/game.js
+
+--next
+-cmd http-server -c-1 docs/
