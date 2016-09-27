@@ -3,6 +3,7 @@ package;
 import edge.Engine;
 import edge.Entity;
 import edge.Phase;
+import haxe.ds.StringMap;
 import howler.Howl;
 import promhx.Deferred;
 import vellum.DOSTerminal;
@@ -25,16 +26,20 @@ extern class Stats {
 
 class Main {
     public static var term:DOSTerminal;
-    public static var engine:Engine;
 
-    public static var updatePhase:Phase;
-    public static var renderPhase:Phase;
-
-    private static var logo:Entity;
+    public static var universes:StringMap<Universe> = new StringMap<Universe>();
+    public static var universe:Universe = null;
 
     #if debug
     private static var stats:Stats;
     #end
+
+    public static function changeUniverse(verse:String):Universe {
+        if(!universes.exists(verse)) throw 'Universe ${verse} doesn\' exist!';
+        universe = universes.get(verse);
+        js.Browser.console.log("Switch to universe '" + verse + "'!", universe);
+        return universe;
+    }
 
     public static function main() {
         // add stats
@@ -48,50 +53,65 @@ class Main {
         js.Browser.document.head.appendChild(script);
         #end
 
-        term = new DOSTerminal(80, 25);
-
-        term.load().then(function(x:Bool) {
-            // show a loading screen
-            term.clear();
-            Timing.start();
-        });
-
-        // start your engines!
-        engine = new Engine();
-        updatePhase = engine.createPhase();
-        renderPhase = engine.createPhase();
-
         // ready..
-        updatePhase.add(new systems.DestroyAfterTime());
-        updatePhase.add(new systems.ScrollImage());
-        updatePhase.add(new systems.Sound());
-        renderPhase.add(new systems.Image());
+        var splash:Universe = new Universe();
+        splash.update.add(new systems.Kinematics());
+        splash.update.add(new systems.KeepInBounds());
+        splash.update.add(new systems.Sound());
+        splash.update.add(new systems.ChangeUniverse());
+        splash.render.add(new systems.ImageRenderer());
+        splash.render.add(new systems.TextRenderer());
+        universes.set("splash", splash);
+
+        var intro:Universe = new Universe();
+        intro.render.add(new systems.TextRenderer());
+        universes.set("intro", intro);
 
         // set..
-        logo = engine.create([
-            new components.Image(Logo.src, 23, 0)
+        splash.engine.create([
+            new components.Image(Logo.src)
                 .addMap(".", "#".charCodeAt(0), Colour.RED)
                 .addMap(":", "#".charCodeAt(0), Colour.ORANGE)
                 .addMap("%", "#".charCodeAt(0), Colour.YELLOW)
                 .addMap("#", "#".charCodeAt(0), Colour.DARKGREY)
                 .addMap("+", "#".charCodeAt(0), Colour.WHITE),
-            new components.ScrollImage(-10 / 1, -10, 0),
-            new components.Sound("blazingmammothgames.ogg", true, false),
-            new components.DestroyAfterTime(5)
+            new components.Position(23, 25),
+            new components.Velocity(0, -64/3.3),
+        ]);
+        splash.engine.create([
+            new components.Text("Blazing Mammoth Games", Colour.GOLD),
+            new components.Position((80 - 21) / 2, 28+32),
+            new components.Velocity(0, -64/3.3),
+            new components.Bounds()
+                .y(12, 100),
+        ]);
+        splash.engine.create([new components.Sound("blazingmammothgames.ogg", true, false)]);
+        splash.engine.create([new components.ChangeUniverseAfterTime("intro", 5)]);
+
+        intro.engine.create([
+            new components.Text("Intro..."),
+            new components.Position(0, 0)
         ]);
 
-        // go!
-        Timing.onUpdate = onUpdate;
-        Timing.onRender = onRender;
+        // instantiate our terminal
+        term = new DOSTerminal(80, 25);
+        term.load().then(function(x:Bool) {
+            // go!
+            changeUniverse("splash");
+            term.clear();
+            Timing.onUpdate = onUpdate;
+            Timing.onRender = onRender;
+            Timing.start();
+        });
     }
 
     private static function onUpdate(dt:Float) {
-        updatePhase.update(dt);
+        universe.update.update(dt);
     }
 
     private static function onRender(dt:Float, alpha:Float) {
         term.clear();
-        renderPhase.update(dt);
+        universe.render.update(dt);
         term.render();
 
         #if debug

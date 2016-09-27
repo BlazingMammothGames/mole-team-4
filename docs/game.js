@@ -265,8 +265,79 @@ StringTools.replace = function(s,sub,by) {
 };
 var Logo = function() { };
 Logo.__name__ = ["Logo"];
+var haxe_IMap = function() { };
+haxe_IMap.__name__ = ["haxe","IMap"];
+var haxe_ds_StringMap = function() {
+	this.h = { };
+};
+haxe_ds_StringMap.__name__ = ["haxe","ds","StringMap"];
+haxe_ds_StringMap.__interfaces__ = [haxe_IMap];
+haxe_ds_StringMap.prototype = {
+	setReserved: function(key,value) {
+		if(this.rh == null) {
+			this.rh = { };
+		}
+		this.rh["$" + key] = value;
+	}
+	,getReserved: function(key) {
+		if(this.rh == null) {
+			return null;
+		} else {
+			return this.rh["$" + key];
+		}
+	}
+	,existsReserved: function(key) {
+		if(this.rh == null) {
+			return false;
+		}
+		return this.rh.hasOwnProperty("$" + key);
+	}
+	,remove: function(key) {
+		if(__map_reserved[key] != null) {
+			key = "$" + key;
+			if(this.rh == null || !this.rh.hasOwnProperty(key)) {
+				return false;
+			}
+			delete(this.rh[key]);
+			return true;
+		} else {
+			if(!this.h.hasOwnProperty(key)) {
+				return false;
+			}
+			delete(this.h[key]);
+			return true;
+		}
+	}
+	,arrayKeys: function() {
+		var out = [];
+		for( var key in this.h ) {
+		if(this.h.hasOwnProperty(key)) {
+			out.push(key);
+		}
+		}
+		if(this.rh != null) {
+			for( var key in this.rh ) {
+			if(key.charCodeAt(0) == 36) {
+				out.push(key.substr(1));
+			}
+			}
+		}
+		return out;
+	}
+	,__class__: haxe_ds_StringMap
+};
 var Main = function() { };
 Main.__name__ = ["Main"];
+Main.changeUniverse = function(verse) {
+	var _this = Main.universes;
+	if(!(__map_reserved[verse] != null?_this.existsReserved(verse):_this.h.hasOwnProperty(verse))) {
+		throw new js__$Boot_HaxeError("Universe " + verse + " doesn' exist!");
+	}
+	var _this1 = Main.universes;
+	Main.universe = __map_reserved[verse] != null?_this1.getReserved(verse):_this1.h[verse];
+	window.console.log("Switch to universe '" + verse + "'!",Main.universe);
+	return Main.universe;
+};
 Main.main = function() {
 	var script = window.document.createElement("script");
 	script.onload = function() {
@@ -275,28 +346,47 @@ Main.main = function() {
 	};
 	script.src = "//rawgit.com/mrdoob/stats.js/master/build/stats.min.js";
 	window.document.head.appendChild(script);
+	var splash = new Universe();
+	splash.update.add(new systems_Kinematics());
+	splash.update.add(new systems_KeepInBounds());
+	splash.update.add(new systems_Sound());
+	splash.update.add(new systems_ChangeUniverse());
+	splash.render.add(new systems_ImageRenderer());
+	splash.render.add(new systems_TextRenderer());
+	var _this = Main.universes;
+	if(__map_reserved.splash != null) {
+		_this.setReserved("splash",splash);
+	} else {
+		_this.h["splash"] = splash;
+	}
+	var intro = new Universe();
+	intro.render.add(new systems_TextRenderer());
+	var _this1 = Main.universes;
+	if(__map_reserved.intro != null) {
+		_this1.setReserved("intro",intro);
+	} else {
+		_this1.h["intro"] = intro;
+	}
+	splash.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.393939393939394)]);
+	splash.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.393939393939394),new components_Bounds().y(12,100)]);
+	splash.engine.create([new components_Sound("blazingmammothgames.ogg",true,false)]);
+	splash.engine.create([new components_ChangeUniverseAfterTime("intro",5)]);
+	intro.engine.create([new components_Text("Intro..."),new components_Position(0,0)]);
 	Main.term = new vellum_DOSTerminal(80,25);
 	Main.term.load().then(function(x) {
+		Main.changeUniverse("splash");
 		Main.term.clear();
+		Timing.onUpdate = Main.onUpdate;
+		Timing.onRender = Main.onRender;
 		Timing.start();
-	},{ fileName : "Main.hx", lineNumber : 53, className : "Main", methodName : "main"});
-	Main.engine = new edge_Engine();
-	Main.updatePhase = Main.engine.createPhase();
-	Main.renderPhase = Main.engine.createPhase();
-	Main.updatePhase.add(new systems_DestroyAfterTime());
-	Main.updatePhase.add(new systems_ScrollImage());
-	Main.updatePhase.add(new systems_Sound());
-	Main.renderPhase.add(new systems_Image());
-	Main.logo = Main.engine.create([new components_Image(Logo.src,23,0).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_ScrollImage(-10.,-10,0),new components_Sound("blazingmammothgames.ogg",true,false),new components_DestroyAfterTime(5)]);
-	Timing.onUpdate = Main.onUpdate;
-	Timing.onRender = Main.onRender;
+	},{ fileName : "Main.hx", lineNumber : 98, className : "Main", methodName : "main"});
 };
 Main.onUpdate = function(dt) {
-	Main.updatePhase.update(dt);
+	Main.universe.update.update(dt);
 };
 Main.onRender = function(dt,alpha) {
 	Main.term.clear();
-	Main.renderPhase.update(dt);
+	Main.universe.render.update(dt);
 	Main.term.render();
 	if(Main.stats != null) {
 		Main.stats.update();
@@ -341,21 +431,41 @@ Type.getClassName = function(c) {
 	}
 	return a.join(".");
 };
+var Universe = function() {
+	this.engine = new edge_Engine();
+	this.update = this.engine.createPhase();
+	this.render = this.engine.createPhase();
+};
+Universe.__name__ = ["Universe"];
+Universe.prototype = {
+	__class__: Universe
+};
 var edge_IComponent = function() { };
 edge_IComponent.__name__ = ["edge","IComponent"];
-var components_DestroyAfterTime = function(time) {
+var components_Bounds = function() {
+};
+components_Bounds.__name__ = ["components","Bounds"];
+components_Bounds.__interfaces__ = [edge_IComponent];
+components_Bounds.prototype = {
+	y: function(min,max) {
+		this.minY = min;
+		this.maxY = max;
+		return this;
+	}
+	,__class__: components_Bounds
+};
+var components_ChangeUniverseAfterTime = function(universe,time) {
+	this.universe = universe;
 	this.time = time;
 };
-components_DestroyAfterTime.__name__ = ["components","DestroyAfterTime"];
-components_DestroyAfterTime.__interfaces__ = [edge_IComponent];
-components_DestroyAfterTime.prototype = {
-	__class__: components_DestroyAfterTime
+components_ChangeUniverseAfterTime.__name__ = ["components","ChangeUniverseAfterTime"];
+components_ChangeUniverseAfterTime.__interfaces__ = [edge_IComponent];
+components_ChangeUniverseAfterTime.prototype = {
+	__class__: components_ChangeUniverseAfterTime
 };
-var components_Image = function(src,x,y) {
+var components_Image = function(src) {
 	this.map = new haxe_ds_StringMap();
 	this.lines = src.split("\n");
-	this.x = x == null?0:x;
-	this.y = y == null?0:y;
 };
 components_Image.__name__ = ["components","Image"];
 components_Image.__interfaces__ = [edge_IComponent];
@@ -372,16 +482,18 @@ components_Image.prototype = {
 	}
 	,__class__: components_Image
 };
-var components_ScrollImage = function(speedY,minY,maxY) {
-	this.dY = 0;
-	this.speedY = speedY;
-	this.minY = minY;
-	this.maxY = maxY;
+var components_Position = function(x,y,z) {
+	if(z == null) {
+		z = 0;
+	}
+	this.x = x;
+	this.y = y;
+	this.z = z;
 };
-components_ScrollImage.__name__ = ["components","ScrollImage"];
-components_ScrollImage.__interfaces__ = [edge_IComponent];
-components_ScrollImage.prototype = {
-	__class__: components_ScrollImage
+components_Position.__name__ = ["components","Position"];
+components_Position.__interfaces__ = [edge_IComponent];
+components_Position.prototype = {
+	__class__: components_Position
 };
 var components_Sound = function(src,play,loop) {
 	var _gthis = this;
@@ -399,6 +511,29 @@ components_Sound.__interfaces__ = [edge_IComponent];
 components_Sound.prototype = {
 	__class__: components_Sound
 };
+var components_Text = function(text,foreground,background) {
+	this.text = text;
+	this.foreground = foreground;
+	this.background = background;
+};
+components_Text.__name__ = ["components","Text"];
+components_Text.__interfaces__ = [edge_IComponent];
+components_Text.prototype = {
+	__class__: components_Text
+};
+var components_Velocity = function(vx,vy,vz) {
+	if(vz == null) {
+		vz = 0;
+	}
+	this.vx = vx;
+	this.vy = vy;
+	this.vz = vz;
+};
+components_Velocity.__name__ = ["components","Velocity"];
+components_Velocity.__interfaces__ = [edge_IComponent];
+components_Velocity.prototype = {
+	__class__: components_Velocity
+};
 var edge_Engine = function() {
 	this.mapEntities = new haxe_ds_ObjectMap();
 	this.listPhases = [];
@@ -410,13 +545,6 @@ edge_Engine.prototype = {
 		this.mapEntities.set(entity,true);
 		this.matchSystems(entity);
 		return entity;
-	}
-	,remove: function(entity) {
-		this.eachSystem(function(system) {
-			system.__process__.removeEntity(entity);
-		});
-		this.mapEntities.remove(entity);
-		entity.engine = null;
 	}
 	,createPhase: function() {
 		var phase = new edge_Phase(this);
@@ -475,13 +603,6 @@ edge_Entity.prototype = {
 			return;
 		});
 		this.engine.matchSystems(this);
-	}
-	,destroy: function() {
-		if(null == this.engine) {
-			return;
-		}
-		this.engine.remove(this);
-		this.map = new haxe_ds_StringMap();
 	}
 	,remove: function(component) {
 		this._remove(component);
@@ -671,8 +792,6 @@ edge_core_NodeSystemIterator.prototype = {
 	}
 	,__class__: edge_core_NodeSystemIterator
 };
-var haxe_IMap = function() { };
-haxe_IMap.__name__ = ["haxe","IMap"];
 var haxe_ds_ObjectMap = function() {
 	this.h = { __keys__ : { }};
 };
@@ -725,65 +844,6 @@ haxe_ds__$StringMap_StringMapIterator.prototype = {
 		}
 	}
 	,__class__: haxe_ds__$StringMap_StringMapIterator
-};
-var haxe_ds_StringMap = function() {
-	this.h = { };
-};
-haxe_ds_StringMap.__name__ = ["haxe","ds","StringMap"];
-haxe_ds_StringMap.__interfaces__ = [haxe_IMap];
-haxe_ds_StringMap.prototype = {
-	setReserved: function(key,value) {
-		if(this.rh == null) {
-			this.rh = { };
-		}
-		this.rh["$" + key] = value;
-	}
-	,getReserved: function(key) {
-		if(this.rh == null) {
-			return null;
-		} else {
-			return this.rh["$" + key];
-		}
-	}
-	,existsReserved: function(key) {
-		if(this.rh == null) {
-			return false;
-		}
-		return this.rh.hasOwnProperty("$" + key);
-	}
-	,remove: function(key) {
-		if(__map_reserved[key] != null) {
-			key = "$" + key;
-			if(this.rh == null || !this.rh.hasOwnProperty(key)) {
-				return false;
-			}
-			delete(this.rh[key]);
-			return true;
-		} else {
-			if(!this.h.hasOwnProperty(key)) {
-				return false;
-			}
-			delete(this.h[key]);
-			return true;
-		}
-	}
-	,arrayKeys: function() {
-		var out = [];
-		for( var key in this.h ) {
-		if(this.h.hasOwnProperty(key)) {
-			out.push(key);
-		}
-		}
-		if(this.rh != null) {
-			for( var key in this.rh ) {
-			if(key.charCodeAt(0) == 36) {
-				out.push(key.substr(1));
-			}
-			}
-		}
-		return out;
-	}
-	,__class__: haxe_ds_StringMap
 };
 var js__$Boot_HaxeError = function(val) {
 	Error.call(this);
@@ -1200,28 +1260,28 @@ promhx_base_EventLoop.continueOnNextLoop = function() {
 var promhx_error_PromiseError = { __ename__ : true, __constructs__ : ["AlreadyResolved","DownstreamNotFullfilled"] };
 promhx_error_PromiseError.AlreadyResolved = function(message) { var $x = ["AlreadyResolved",0,message]; $x.__enum__ = promhx_error_PromiseError; $x.toString = $estr; return $x; };
 promhx_error_PromiseError.DownstreamNotFullfilled = function(message) { var $x = ["DownstreamNotFullfilled",1,message]; $x.__enum__ = promhx_error_PromiseError; $x.toString = $estr; return $x; };
-var systems_DestroyAfterTime = function() {
-	this.__process__ = new systems_DestroyAfterTime_$SystemProcess(this);
+var systems_ChangeUniverse = function() {
+	this.__process__ = new systems_ChangeUniverse_$SystemProcess(this);
 };
-systems_DestroyAfterTime.__name__ = ["systems","DestroyAfterTime"];
-systems_DestroyAfterTime.__interfaces__ = [edge_ISystem];
-systems_DestroyAfterTime.prototype = {
-	update: function(destroy) {
-		destroy.time -= this.timeDelta;
-		if(destroy.time <= 0) {
-			this.entity.destroy();
+systems_ChangeUniverse.__name__ = ["systems","ChangeUniverse"];
+systems_ChangeUniverse.__interfaces__ = [edge_ISystem];
+systems_ChangeUniverse.prototype = {
+	update: function(change) {
+		change.time -= this.timeDelta;
+		if(change.time <= 0) {
+			Main.changeUniverse(change.universe);
 		}
 		return true;
 	}
-	,__class__: systems_DestroyAfterTime
+	,__class__: systems_ChangeUniverse
 };
-var systems_DestroyAfterTime_$SystemProcess = function(system) {
+var systems_ChangeUniverse_$SystemProcess = function(system) {
 	this.system = system;
 	this.updateItems = new edge_View();
 };
-systems_DestroyAfterTime_$SystemProcess.__name__ = ["systems","DestroyAfterTime_SystemProcess"];
-systems_DestroyAfterTime_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
-systems_DestroyAfterTime_$SystemProcess.prototype = {
+systems_ChangeUniverse_$SystemProcess.__name__ = ["systems","ChangeUniverse_SystemProcess"];
+systems_ChangeUniverse_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_ChangeUniverse_$SystemProcess.prototype = {
 	removeEntity: function(entity) {
 		this.updateItems.tryRemove(entity);
 	}
@@ -1234,10 +1294,8 @@ systems_DestroyAfterTime_$SystemProcess.prototype = {
 		var data;
 		var tmp = this.updateItems.iterator();
 		while(tmp.hasNext()) {
-			var item = tmp.next();
-			this.system.entity = item.entity;
-			data = item.data;
-			result = this.system.update(data.destroy);
+			data = tmp.next().data;
+			result = this.system.update(data.change);
 			if(!result) {
 				break;
 			}
@@ -1247,13 +1305,13 @@ systems_DestroyAfterTime_$SystemProcess.prototype = {
 	,updateMatchRequirements: function(entity) {
 		this.updateItems.tryRemove(entity);
 		var count = 1;
-		var o = { destroy : null};
+		var o = { change : null};
 		var _this = entity.map;
 		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
 		while(tmp.hasNext()) {
 			var component = tmp.next();
-			if(js_Boot.__instanceof(component,components_DestroyAfterTime)) {
-				o.destroy = component;
+			if(js_Boot.__instanceof(component,components_ChangeUniverseAfterTime)) {
+				o.change = component;
 				count = 0;
 				break;
 			}
@@ -1262,17 +1320,17 @@ systems_DestroyAfterTime_$SystemProcess.prototype = {
 			this.updateItems.tryAdd(entity,o);
 		}
 	}
-	,__class__: systems_DestroyAfterTime_$SystemProcess
+	,__class__: systems_ChangeUniverse_$SystemProcess
 };
-var systems_Image = function() {
-	this.__process__ = new systems_Image_$SystemProcess(this);
+var systems_ImageRenderer = function() {
+	this.__process__ = new systems_ImageRenderer_$SystemProcess(this);
 };
-systems_Image.__name__ = ["systems","Image"];
-systems_Image.__interfaces__ = [edge_ISystem];
-systems_Image.prototype = {
-	update: function(image) {
-		var x = image.x;
-		var y = image.y;
+systems_ImageRenderer.__name__ = ["systems","ImageRenderer"];
+systems_ImageRenderer.__interfaces__ = [edge_ISystem];
+systems_ImageRenderer.prototype = {
+	update: function(pos,image) {
+		var x = pos.x | 0;
+		var y = pos.y | 0;
 		var _g = 0;
 		var _g1 = image.lines;
 		while(_g < _g1.length) {
@@ -1298,15 +1356,15 @@ systems_Image.prototype = {
 		}
 		return true;
 	}
-	,__class__: systems_Image
+	,__class__: systems_ImageRenderer
 };
-var systems_Image_$SystemProcess = function(system) {
+var systems_ImageRenderer_$SystemProcess = function(system) {
 	this.system = system;
 	this.updateItems = new edge_View();
 };
-systems_Image_$SystemProcess.__name__ = ["systems","Image_SystemProcess"];
-systems_Image_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
-systems_Image_$SystemProcess.prototype = {
+systems_ImageRenderer_$SystemProcess.__name__ = ["systems","ImageRenderer_SystemProcess"];
+systems_ImageRenderer_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_ImageRenderer_$SystemProcess.prototype = {
 	removeEntity: function(entity) {
 		this.updateItems.tryRemove(entity);
 	}
@@ -1319,7 +1377,7 @@ systems_Image_$SystemProcess.prototype = {
 		var tmp = this.updateItems.iterator();
 		while(tmp.hasNext()) {
 			data = tmp.next().data;
-			result = this.system.update(data.image);
+			result = this.system.update(data.pos,data.image);
 			if(!result) {
 				break;
 			}
@@ -1328,54 +1386,141 @@ systems_Image_$SystemProcess.prototype = {
 	}
 	,updateMatchRequirements: function(entity) {
 		this.updateItems.tryRemove(entity);
-		var count = 1;
-		var o = { image : null};
+		var count = 2;
+		var o = { pos : null, image : null};
 		var _this = entity.map;
 		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
 		while(tmp.hasNext()) {
 			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
 			if(js_Boot.__instanceof(component,components_Image)) {
 				o.image = component;
-				count = 0;
-				break;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
 			}
 		}
 		if(count == 0) {
 			this.updateItems.tryAdd(entity,o);
 		}
 	}
-	,__class__: systems_Image_$SystemProcess
+	,__class__: systems_ImageRenderer_$SystemProcess
 };
-var systems_ScrollImage = function() {
-	this.__process__ = new systems_ScrollImage_$SystemProcess(this);
+var systems_KeepInBounds = function() {
+	this.__process__ = new systems_KeepInBounds_$SystemProcess(this);
 };
-systems_ScrollImage.__name__ = ["systems","ScrollImage"];
-systems_ScrollImage.__interfaces__ = [edge_ISystem];
-systems_ScrollImage.prototype = {
-	update: function(image,scroll) {
-		scroll.dY += scroll.speedY * this.timeDelta;
-		while(Math.abs(scroll.dY) > 1) {
-			var sign = scroll.dY > 0?1:-1;
-			image.y += sign | 0;
-			scroll.dY -= sign;
+systems_KeepInBounds.__name__ = ["systems","KeepInBounds"];
+systems_KeepInBounds.__interfaces__ = [edge_ISystem];
+systems_KeepInBounds.prototype = {
+	update: function(pos,bounds) {
+		if(bounds.minX != null && pos.x < bounds.minX) {
+			pos.x = bounds.minX;
 		}
-		if(image.y < scroll.minY) {
-			image.y = scroll.minY;
+		if(bounds.maxX != null && pos.x > bounds.maxX) {
+			pos.x = bounds.maxX;
 		}
-		if(image.y > scroll.maxY) {
-			image.y = scroll.maxY;
+		if(bounds.minY != null && pos.y < bounds.minY) {
+			pos.y = bounds.minY;
+		}
+		if(bounds.maxY != null && pos.y > bounds.maxY) {
+			pos.y = bounds.maxY;
+		}
+		if(bounds.minZ != null && pos.z < bounds.minZ) {
+			pos.z = bounds.minZ;
+		}
+		if(bounds.maxZ != null && pos.z > bounds.maxZ) {
+			pos.z = bounds.maxZ;
 		}
 		return true;
 	}
-	,__class__: systems_ScrollImage
+	,__class__: systems_KeepInBounds
 };
-var systems_ScrollImage_$SystemProcess = function(system) {
+var systems_KeepInBounds_$SystemProcess = function(system) {
 	this.system = system;
 	this.updateItems = new edge_View();
 };
-systems_ScrollImage_$SystemProcess.__name__ = ["systems","ScrollImage_SystemProcess"];
-systems_ScrollImage_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
-systems_ScrollImage_$SystemProcess.prototype = {
+systems_KeepInBounds_$SystemProcess.__name__ = ["systems","KeepInBounds_SystemProcess"];
+systems_KeepInBounds_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_KeepInBounds_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			data = tmp.next().data;
+			result = this.system.update(data.pos,data.bounds);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 2;
+		var o = { pos : null, bounds : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+			if(js_Boot.__instanceof(component,components_Bounds)) {
+				o.bounds = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_KeepInBounds_$SystemProcess
+};
+var systems_Kinematics = function() {
+	this.__process__ = new systems_Kinematics_$SystemProcess(this);
+};
+systems_Kinematics.__name__ = ["systems","Kinematics"];
+systems_Kinematics.__interfaces__ = [edge_ISystem];
+systems_Kinematics.prototype = {
+	update: function(pos,vel) {
+		pos.x += vel.vx * this.timeDelta;
+		pos.y += vel.vy * this.timeDelta;
+		return true;
+	}
+	,__class__: systems_Kinematics
+};
+var systems_Kinematics_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_Kinematics_$SystemProcess.__name__ = ["systems","Kinematics_SystemProcess"];
+systems_Kinematics_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_Kinematics_$SystemProcess.prototype = {
 	removeEntity: function(entity) {
 		this.updateItems.tryRemove(entity);
 	}
@@ -1389,7 +1534,7 @@ systems_ScrollImage_$SystemProcess.prototype = {
 		var tmp = this.updateItems.iterator();
 		while(tmp.hasNext()) {
 			data = tmp.next().data;
-			result = this.system.update(data.image,data.scroll);
+			result = this.system.update(data.pos,data.vel);
 			if(!result) {
 				break;
 			}
@@ -1399,21 +1544,21 @@ systems_ScrollImage_$SystemProcess.prototype = {
 	,updateMatchRequirements: function(entity) {
 		this.updateItems.tryRemove(entity);
 		var count = 2;
-		var o = { image : null, scroll : null};
+		var o = { pos : null, vel : null};
 		var _this = entity.map;
 		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
 		while(tmp.hasNext()) {
 			var component = tmp.next();
-			if(js_Boot.__instanceof(component,components_Image)) {
-				o.image = component;
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
 				if(--count == 0) {
 					break;
 				} else {
 					continue;
 				}
 			}
-			if(js_Boot.__instanceof(component,components_ScrollImage)) {
-				o.scroll = component;
+			if(js_Boot.__instanceof(component,components_Velocity)) {
+				o.vel = component;
 				if(--count == 0) {
 					break;
 				} else {
@@ -1425,7 +1570,7 @@ systems_ScrollImage_$SystemProcess.prototype = {
 			this.updateItems.tryAdd(entity,o);
 		}
 	}
-	,__class__: systems_ScrollImage_$SystemProcess
+	,__class__: systems_Kinematics_$SystemProcess
 };
 var systems_Sound = function() {
 	this.__process__ = new systems_Sound_$SystemProcess(this);
@@ -1488,6 +1633,75 @@ systems_Sound_$SystemProcess.prototype = {
 	}
 	,__class__: systems_Sound_$SystemProcess
 };
+var systems_TextRenderer = function() {
+	this.__process__ = new systems_TextRenderer_$SystemProcess(this);
+};
+systems_TextRenderer.__name__ = ["systems","TextRenderer"];
+systems_TextRenderer.__interfaces__ = [edge_ISystem];
+systems_TextRenderer.prototype = {
+	update: function(pos,text) {
+		Main.term.print(pos.x | 0,pos.y | 0,text.text,text.foreground,text.background);
+		return true;
+	}
+	,__class__: systems_TextRenderer
+};
+var systems_TextRenderer_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_TextRenderer_$SystemProcess.__name__ = ["systems","TextRenderer_SystemProcess"];
+systems_TextRenderer_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_TextRenderer_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			data = tmp.next().data;
+			result = this.system.update(data.pos,data.text);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 2;
+		var o = { pos : null, text : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+			if(js_Boot.__instanceof(component,components_Text)) {
+				o.text = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_TextRenderer_$SystemProcess
+};
 var thx_Either = { __ename__ : true, __constructs__ : ["Left","Right"] };
 thx_Either.Left = function(value) { var $x = ["Left",0,value]; $x.__enum__ = thx_Either; $x.toString = $estr; return $x; };
 thx_Either.Right = function(value) { var $x = ["Right",1,value]; $x.__enum__ = thx_Either; $x.toString = $estr; return $x; };
@@ -1526,6 +1740,17 @@ vellum_Display.prototype = {
 			var _g3 = 0;
 			var _g2 = this.get_width();
 			while(_g3 < _g2) this.writeGlyph(_g3++,y,clearGlyph);
+		}
+	}
+	,print: function(x,y,text,foreground,background) {
+		var _g1 = 0;
+		var _g = text.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			if(x + i >= this.get_width()) {
+				break;
+			}
+			this.writeCharCode(x + i,y,text.charCodeAt(i),foreground,background);
 		}
 	}
 	,printGlyphs: function(x,y,glyphs) {
@@ -1822,6 +2047,7 @@ vellum_Window.prototype = $extend(vellum_Display.prototype,{
 });
 var $_, $fid = 0;
 function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id__ = $fid++; var f; if( o.hx__closures__ == null ) o.hx__closures__ = {}; else f = o.hx__closures__[m.__id__]; if( f == null ) { f = function(){ return f.method.apply(f.scope, arguments); }; f.scope = o; f.method = m; o.hx__closures__[m.__id__] = f; } return f; }
+var __map_reserved = {}
 String.prototype.__class__ = String;
 String.__name__ = ["String"];
 Array.__name__ = ["Array"];
@@ -1833,9 +2059,9 @@ var Bool = Boolean;
 Bool.__ename__ = ["Bool"];
 var Class = { __name__ : ["Class"]};
 var Enum = { };
-var __map_reserved = {}
 var global = window;
-Logo.src = StringTools.replace("                         .        \r\n                         ..       \r\n             .            ..      \r\n            ..            ..      \r\n           ..            ...      \r\n           ..      .   .....      \r\n     .     ...    ..  .....       \r\n     ...    .... .... ....        \r\n     ....  ...............        \r\n      ... ...::...::..:..         \r\n      ......::######::...         \r\n       .:..::##++++##:..          \r\n       ..:::##++++++##..    .     \r\n       ...::#++####++#...  ..     \r\n        ...:#++####++#:..  ..     \r\n   .    ..::#+++##+++#:.. ...     \r\n   ...  ..::#+++##+++#::....      \r\n ###... ..::##++##++##::....  ### \r\n##+#......::%##++++##:::...   #+## \r\n#++#.....:::%%#++++#%::...    #++# \r\n#+## ..::::%%%#++++#%::..   . ##+# \r\n#+#  ...::%%%%#++++#%%:.. ...  #+# \r\n#+## ..:::%%%##++++##::.....  ##+# \r\n#++##...:::%%#++++++#:::.... ##++# \r\n#+++# ...:::##++##++##:::..  #+++# \r\n##++###..:###++####++###...###++## \r\n ##+++#####++++#%%#++++#####+++## \r\n  ##++++#+++++##%%##+++++#++++##  \r\n   ##+++++++###%:::###+++++++##   \r\n    ###+++###..:.....###+++###    \r\n      #####   ...      #####      \r\n      #####   ...      #####      \r\n\r\n      Blazing Mammoth Games","\r","");
+Logo.src = StringTools.replace("                         .        \r\n                         ..       \r\n             .            ..      \r\n            ..            ..      \r\n           ..            ...      \r\n           ..      .   .....      \r\n     .     ...    ..  .....       \r\n     ...    .... .... ....        \r\n     ....  ...............        \r\n      ... ...::...::..:..         \r\n      ......::######::...         \r\n       .:..::##++++##:..          \r\n       ..:::##++++++##..    .     \r\n       ...::#++####++#...  ..     \r\n        ...:#++####++#:..  ..     \r\n   .    ..::#+++##+++#:.. ...     \r\n   ...  ..::#+++##+++#::....      \r\n ###... ..::##++##++##::....  ### \r\n##+#......::%##++++##:::...   #+## \r\n#++#.....:::%%#++++#%::...    #++# \r\n#+## ..::::%%%#++++#%::..   . ##+# \r\n#+#  ...::%%%%#++++#%%:.. ...  #+# \r\n#+## ..:::%%%##++++##::.....  ##+# \r\n#++##...:::%%#++++++#:::.... ##++# \r\n#+++# ...:::##++##++##:::..  #+++# \r\n##++###..:###++####++###...###++## \r\n ##+++#####++++#%%#++++#####+++## \r\n  ##++++#+++++##%%##+++++#++++##  \r\n   ##+++++++###%:::###+++++++##   \r\n    ###+++###..:.....###+++###    \r\n      #####   ...      #####      \r\n      #####   ...      #####      ","\r","");
+Main.universes = new haxe_ds_StringMap();
 Timing.animationFrameID = 0;
 Timing.time = 0;
 Timing.lastTime = 0;

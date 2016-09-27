@@ -1,15 +1,17 @@
 package systems;
 
+import components.Image;
+import components.Position;
 import edge.ISystem;
 import edge.View;
 import vellum.Glyph;
 
 using Lambda;
 
-class Image implements ISystem {
-	public function update(image:components.Image) {
-		var x:Int = image.x;
-		var y:Int = image.y;
+class ImageRenderer implements ISystem {
+	public function update(pos:Position, image:Image) {
+		var x:Int = Std.int(pos.x);
+		var y:Int = Std.int(pos.y);
 		for(line in image.lines) {
 			var glyphs:Array<Glyph> = new Array<Glyph>();
 			for(i in 0...line.length) {
