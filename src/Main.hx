@@ -23,12 +23,17 @@ extern class Stats {
 #end
 
 class Main {
+    public static var console:js.html.Console = js.Browser.console;
     public static var term:DOSTerminal;
     private static var _universes:StringMap<Universe> = new StringMap<Universe>();
     public static var universe:Universe = null;
 
-    public static var intents:Array<Intent> = new Array<Intent>();
+    private static var intents:Array<Intent> = new Array<Intent>();
     private static var tempIntents:Array<Intent> = new Array<Intent>();
+
+    public static function intended(intent:Intent) {
+        return intents.indexOf(intent) > -1;
+    }
 
     #if debug
     private static var stats:Stats;

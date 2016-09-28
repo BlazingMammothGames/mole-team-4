@@ -2,10 +2,8 @@ package;
 
 enum Intent {
     Skip;
-    Up;
-    Right;
-    Down;
-    Left;
+    
+    Next;
+    Previous;
     Select;
-    Back;
 }

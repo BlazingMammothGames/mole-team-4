@@ -184,6 +184,9 @@ function $extend(from, fields) {
 	if( fields.toString !== Object.prototype.toString ) proto.toString = fields.toString;
 	return proto;
 }
+var Events = { __ename__ : true, __constructs__ : ["DebugMessage","ChangeUniverse"] };
+Events.DebugMessage = function(message) { var $x = ["DebugMessage",0,message]; $x.__enum__ = Events; $x.toString = $estr; return $x; };
+Events.ChangeUniverse = function(verse) { var $x = ["ChangeUniverse",1,verse]; $x.__enum__ = Events; $x.toString = $estr; return $x; };
 var HxOverrides = function() { };
 HxOverrides.__name__ = ["HxOverrides"];
 HxOverrides.cca = function(s,index) {
@@ -200,28 +203,19 @@ HxOverrides.iter = function(a) {
 		return this.arr[this.cur++];
 	}};
 };
-var Intent = { __ename__ : true, __constructs__ : ["Skip","Up","Right","Down","Left","Select","Back"] };
+var Intent = { __ename__ : true, __constructs__ : ["Skip","Next","Previous","Select"] };
 Intent.Skip = ["Skip",0];
 Intent.Skip.toString = $estr;
 Intent.Skip.__enum__ = Intent;
-Intent.Up = ["Up",1];
-Intent.Up.toString = $estr;
-Intent.Up.__enum__ = Intent;
-Intent.Right = ["Right",2];
-Intent.Right.toString = $estr;
-Intent.Right.__enum__ = Intent;
-Intent.Down = ["Down",3];
-Intent.Down.toString = $estr;
-Intent.Down.__enum__ = Intent;
-Intent.Left = ["Left",4];
-Intent.Left.toString = $estr;
-Intent.Left.__enum__ = Intent;
-Intent.Select = ["Select",5];
+Intent.Next = ["Next",1];
+Intent.Next.toString = $estr;
+Intent.Next.__enum__ = Intent;
+Intent.Previous = ["Previous",2];
+Intent.Previous.toString = $estr;
+Intent.Previous.__enum__ = Intent;
+Intent.Select = ["Select",3];
 Intent.Select.toString = $estr;
 Intent.Select.__enum__ = Intent;
-Intent.Back = ["Back",6];
-Intent.Back.toString = $estr;
-Intent.Back.__enum__ = Intent;
 var List = function() {
 	this.length = 0;
 };
@@ -350,6 +344,9 @@ haxe_ds_StringMap.prototype = {
 };
 var Main = function() { };
 Main.__name__ = ["Main"];
+Main.intended = function(intent) {
+	return Main.intents.indexOf(intent) > -1;
+};
 Main.changeUniverse = function(verse) {
 	var _this = Main._universes;
 	if(!(__map_reserved[verse] != null?_this.existsReserved(verse):_this.h.hasOwnProperty(verse))) {
@@ -399,7 +396,7 @@ Main.main = function() {
 		Timing.onUpdate = Main.onUpdate;
 		Timing.onRender = Main.onRender;
 		Timing.start();
-	},{ fileName : "Main.hx", lineNumber : 65, className : "Main", methodName : "main"});
+	},{ fileName : "Main.hx", lineNumber : 70, className : "Main", methodName : "main"});
 };
 Main.onUpdate = function(dt) {
 	Main.intents = Main.tempIntents;
@@ -535,6 +532,14 @@ components_ChangeUniverseOnIntent.__interfaces__ = [edge_IComponent];
 components_ChangeUniverseOnIntent.prototype = {
 	__class__: components_ChangeUniverseOnIntent
 };
+var components_Event = function(event) {
+	this.event = event;
+};
+components_Event.__name__ = ["components","Event"];
+components_Event.__interfaces__ = [edge_IComponent];
+components_Event.prototype = {
+	__class__: components_Event
+};
 var components_Image = function(src) {
 	this.map = new haxe_ds_StringMap();
 	this.lines = src.split("\n");
@@ -553,6 +558,27 @@ components_Image.prototype = {
 		return this;
 	}
 	,__class__: components_Image
+};
+var components_MenuItem = function(index) {
+	this.index = index;
+};
+components_MenuItem.__name__ = ["components","MenuItem"];
+components_MenuItem.__interfaces__ = [edge_IComponent];
+components_MenuItem.prototype = {
+	__class__: components_MenuItem
+};
+var components_MenuSelector = function(selection) {
+	this.selection = selection;
+};
+components_MenuSelector.__name__ = ["components","MenuSelector"];
+components_MenuSelector.__interfaces__ = [edge_IComponent];
+components_MenuSelector.prototype = {
+	setOffset: function(x,y) {
+		this.positionOffsetX = x;
+		this.positionOffsetY = y;
+		return this;
+	}
+	,__class__: components_MenuSelector
 };
 var components_Position = function(x,y,z) {
 	if(z == null) {
@@ -588,7 +614,7 @@ components_Sound.prototype = {
 	__class__: components_Sound
 };
 var components_Text = function(text,foreground,background) {
-	this.text = text;
+	this.text = text != null?text:"";
 	this.foreground = foreground;
 	this.background = background;
 };
@@ -621,6 +647,13 @@ edge_Engine.prototype = {
 		this.mapEntities.set(entity,true);
 		this.matchSystems(entity);
 		return entity;
+	}
+	,remove: function(entity) {
+		this.eachSystem(function(system) {
+			system.__process__.removeEntity(entity);
+		});
+		this.mapEntities.remove(entity);
+		entity.engine = null;
 	}
 	,createPhase: function() {
 		var phase = new edge_Phase(this);
@@ -679,6 +712,13 @@ edge_Entity.prototype = {
 			return;
 		});
 		this.engine.matchSystems(this);
+	}
+	,destroy: function() {
+		if(null == this.engine) {
+			return;
+		}
+		this.engine.remove(this);
+		this.map = new haxe_ds_StringMap();
 	}
 	,remove: function(component) {
 		this._remove(component);
@@ -1405,14 +1445,8 @@ systems_ChangeUniverseOnIntent.__name__ = ["systems","ChangeUniverseOnIntent"];
 systems_ChangeUniverseOnIntent.__interfaces__ = [edge_ISystem];
 systems_ChangeUniverseOnIntent.prototype = {
 	update: function(change) {
-		var _g = 0;
-		var _g1 = Main.intents;
-		while(_g < _g1.length) {
-			var intent = _g1[_g];
-			++_g;
-			if(intent == change.intent) {
-				Main.changeUniverse(change.universe);
-			}
+		if(Main.intended(change.intent)) {
+			Main.changeUniverse(change.universe);
 		}
 		return true;
 	}
@@ -1463,6 +1497,70 @@ systems_ChangeUniverseOnIntent_$SystemProcess.prototype = {
 		}
 	}
 	,__class__: systems_ChangeUniverseOnIntent_$SystemProcess
+};
+var systems_DebugEvent = function() {
+	this.__process__ = new systems_DebugEvent_$SystemProcess(this);
+};
+systems_DebugEvent.__name__ = ["systems","DebugEvent"];
+systems_DebugEvent.__interfaces__ = [edge_ISystem];
+systems_DebugEvent.prototype = {
+	update: function(event) {
+		var _g = event.event;
+		if(_g[1] == 0) {
+			Main.console.debug("Debug:",_g[2]);
+			this.entity.destroy();
+		}
+		return true;
+	}
+	,__class__: systems_DebugEvent
+};
+var systems_DebugEvent_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_DebugEvent_$SystemProcess.__name__ = ["systems","DebugEvent_SystemProcess"];
+systems_DebugEvent_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_DebugEvent_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			this.system.entity = item.entity;
+			data = item.data;
+			result = this.system.update(data.event);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 1;
+		var o = { event : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Event)) {
+				o.event = component;
+				count = 0;
+				break;
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_DebugEvent_$SystemProcess
 };
 var systems_ImageRenderer = function() {
 	this.__process__ = new systems_ImageRenderer_$SystemProcess(this);
@@ -1714,6 +1812,148 @@ systems_Kinematics_$SystemProcess.prototype = {
 	}
 	,__class__: systems_Kinematics_$SystemProcess
 };
+var systems_Menu = function() {
+	this.maxIndex = 0;
+	this.__process__ = new systems_Menu_$SystemProcess(this);
+};
+systems_Menu.__name__ = ["systems","Menu"];
+systems_Menu.__interfaces__ = [edge_ISystem];
+systems_Menu.prototype = {
+	menuItemsAdded: function(entity,data) {
+		if(data.menuItem.index > this.maxIndex) {
+			this.maxIndex = data.menuItem.index;
+		}
+	}
+	,menuItemsRemoved: function(entity,data) {
+		this.maxIndex = 0;
+		var tmp = this.menuItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			if(item.data.menuItem.index > this.maxIndex) {
+				this.maxIndex = item.data.menuItem.index;
+			}
+		}
+	}
+	,update: function(selector,pos) {
+		if(Main.intended(Intent.Previous) && selector.selection > 0) {
+			selector.selection--;
+		}
+		if(Main.intended(Intent.Next) && selector.selection < this.maxIndex) {
+			selector.selection++;
+		}
+		if(Main.intended(Intent.Select)) {
+			this.entity.engine.create([new components_Event(Events.DebugMessage("selected: " + selector.selection))]);
+		}
+		var tmp = this.menuItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			if(selector.selection == item.data.menuItem.index) {
+				pos.x = item.data.pos.x + selector.positionOffsetX;
+				pos.y = item.data.pos.y + selector.positionOffsetY;
+			}
+		}
+		return true;
+	}
+	,__class__: systems_Menu
+};
+var systems_Menu_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+	system.menuItems = new edge_View();
+};
+systems_Menu_$SystemProcess.__name__ = ["systems","Menu_SystemProcess"];
+systems_Menu_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_Menu_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var removed = this.system.menuItems.tryRemove(entity);
+		if(removed != null) {
+			this.system.menuItemsRemoved(entity,removed);
+		}
+	}
+	,addEntity: function(entity) {
+		this.menuItemsMatchRequirements(entity);
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			this.system.entity = item.entity;
+			data = item.data;
+			result = this.system.update(data.selector,data.pos);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,menuItemsMatchRequirements: function(entity) {
+		var removed = this.system.menuItems.tryRemove(entity);
+		var count = 2;
+		var o = { pos : null, menuItem : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+			if(js_Boot.__instanceof(component,components_MenuItem)) {
+				o.menuItem = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+		}
+		var added = count == 0 && this.system.menuItems.tryAdd(entity,o);
+		if(null != removed && !added) {
+			this.system.menuItemsRemoved(entity,removed);
+		}
+		if(added && null == removed) {
+			this.system.menuItemsAdded(entity,o);
+		}
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 2;
+		var o = { selector : null, pos : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_MenuSelector)) {
+				o.selector = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_Menu_$SystemProcess
+};
 var systems_Sound = function(universe) {
 	Pauseable.call(this,universe);
 	this.__process__ = new systems_Sound_$SystemProcess(this);
@@ -1898,9 +2138,24 @@ universes_Intro.prototype = $extend(Universe.prototype,{
 });
 var universes_MainMenu = function() {
 	Universe.call(this);
-	this.input.bind(new vellum_KeyBind(27,vellum_KeyEventType.DOWN),Intent.Back);
+	this.input.bind(new vellum_KeyBind(13,vellum_KeyEventType.DOWN),Intent.Select);
+	this.input.bind(new vellum_KeyBind(38,vellum_KeyEventType.DOWN),Intent.Previous);
+	this.input.bind(new vellum_KeyBind(87,vellum_KeyEventType.DOWN),Intent.Previous);
+	this.input.bind(new vellum_KeyBind(37,vellum_KeyEventType.DOWN),Intent.Previous);
+	this.input.bind(new vellum_KeyBind(65,vellum_KeyEventType.DOWN),Intent.Previous);
+	this.input.bind(new vellum_KeyBind(40,vellum_KeyEventType.DOWN),Intent.Next);
+	this.input.bind(new vellum_KeyBind(83,vellum_KeyEventType.DOWN),Intent.Next);
+	this.input.bind(new vellum_KeyBind(39,vellum_KeyEventType.DOWN),Intent.Next);
+	this.input.bind(new vellum_KeyBind(68,vellum_KeyEventType.DOWN),Intent.Next);
+	this.update.add(new systems_Menu());
+	this.update.add(new systems_DebugEvent());
 	this.render.add(new systems_TextRenderer());
-	this.engine.create([new components_Text("== Main Menu =="),new components_Position((Main.term.get_width() - 15) / 2,0)]);
+	this.engine.create([new components_Text("== Main Menu ==","rgb(255, 192, 0)"),new components_Position((Main.term.get_width() - 15) / 2,1)]);
+	this.engine.create([new components_Text(">","rgb(255, 192, 0)"),new components_MenuSelector(0).setOffset(-2,0),new components_Position(0,0)]);
+	this.engine.create([new components_Text("Play"),new components_Position(3,3),new components_MenuItem(0)]);
+	this.engine.create([new components_Text("Options"),new components_Position(3,4),new components_MenuItem(1)]);
+	this.engine.create([new components_Text("Credits"),new components_Position(3,5),new components_MenuItem(2)]);
+	this.engine.create([new components_Text("Quit"),new components_Position(Main.term.get_width() - 6,Main.term.get_height() - 2),new components_MenuItem(3)]);
 };
 universes_MainMenu.__name__ = ["universes","MainMenu"];
 universes_MainMenu.__super__ = Universe;
@@ -2295,6 +2550,7 @@ var Class = { __name__ : ["Class"]};
 var Enum = { };
 var global = window;
 Logo.src = StringTools.replace("                         .        \r\n                         ..       \r\n             .            ..      \r\n            ..            ..      \r\n           ..            ...      \r\n           ..      .   .....      \r\n     .     ...    ..  .....       \r\n     ...    .... .... ....        \r\n     ....  ...............        \r\n      ... ...::...::..:..         \r\n      ......::######::...         \r\n       .:..::##++++##:..          \r\n       ..:::##++++++##..    .     \r\n       ...::#++####++#...  ..     \r\n        ...:#++####++#:..  ..     \r\n   .    ..::#+++##+++#:.. ...     \r\n   ...  ..::#+++##+++#::....      \r\n ###... ..::##++##++##::....  ### \r\n##+#......::%##++++##:::...   #+## \r\n#++#.....:::%%#++++#%::...    #++# \r\n#+## ..::::%%%#++++#%::..   . ##+# \r\n#+#  ...::%%%%#++++#%%:.. ...  #+# \r\n#+## ..:::%%%##++++##::.....  ##+# \r\n#++##...:::%%#++++++#:::.... ##++# \r\n#+++# ...:::##++##++##:::..  #+++# \r\n##++###..:###++####++###...###++## \r\n ##+++#####++++#%%#++++#####+++## \r\n  ##++++#+++++##%%##+++++#++++##  \r\n   ##+++++++###%:::###+++++++##   \r\n    ###+++###..:.....###+++###    \r\n      #####   ...      #####      \r\n      #####   ...      #####      ","\r","");
+Main.console = window.console;
 Main._universes = new haxe_ds_StringMap();
 Main.intents = [];
 Main.tempIntents = [];
