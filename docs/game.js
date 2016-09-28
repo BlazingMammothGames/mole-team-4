@@ -193,14 +193,6 @@ HxOverrides.cca = function(s,index) {
 	}
 	return x;
 };
-HxOverrides.remove = function(a,obj) {
-	var i = a.indexOf(obj);
-	if(i == -1) {
-		return false;
-	}
-	a.splice(i,1);
-	return true;
-};
 HxOverrides.iter = function(a) {
 	return { cur : 0, arr : a, hasNext : function() {
 		return this.cur < this.arr.length;
@@ -208,10 +200,28 @@ HxOverrides.iter = function(a) {
 		return this.arr[this.cur++];
 	}};
 };
-var Intent = { __ename__ : true, __constructs__ : ["Skip"] };
+var Intent = { __ename__ : true, __constructs__ : ["Skip","Up","Right","Down","Left","Select","Back"] };
 Intent.Skip = ["Skip",0];
 Intent.Skip.toString = $estr;
 Intent.Skip.__enum__ = Intent;
+Intent.Up = ["Up",1];
+Intent.Up.toString = $estr;
+Intent.Up.__enum__ = Intent;
+Intent.Right = ["Right",2];
+Intent.Right.toString = $estr;
+Intent.Right.__enum__ = Intent;
+Intent.Down = ["Down",3];
+Intent.Down.toString = $estr;
+Intent.Down.__enum__ = Intent;
+Intent.Left = ["Left",4];
+Intent.Left.toString = $estr;
+Intent.Left.__enum__ = Intent;
+Intent.Select = ["Select",5];
+Intent.Select.toString = $estr;
+Intent.Select.__enum__ = Intent;
+Intent.Back = ["Back",6];
+Intent.Back.toString = $estr;
+Intent.Back.__enum__ = Intent;
 var List = function() {
 	this.length = 0;
 };
@@ -360,31 +370,40 @@ Main.main = function() {
 	};
 	script.src = "//rawgit.com/mrdoob/stats.js/master/build/stats.min.js";
 	window.document.head.appendChild(script);
+	Main.term = new vellum_DOSTerminal(80,25);
+	Main.term.onInputEvent = Main.handleInput;
 	var _this = Main.universes;
 	var value = new universes_Splash();
-	if(__map_reserved.splash != null) {
-		_this.setReserved("splash",value);
+	if(__map_reserved.Splash != null) {
+		_this.setReserved("Splash",value);
 	} else {
-		_this.h["splash"] = value;
+		_this.h["Splash"] = value;
 	}
 	var _this1 = Main.universes;
 	var value1 = new universes_Intro();
-	if(__map_reserved.intro != null) {
-		_this1.setReserved("intro",value1);
+	if(__map_reserved.Intro != null) {
+		_this1.setReserved("Intro",value1);
 	} else {
-		_this1.h["intro"] = value1;
+		_this1.h["Intro"] = value1;
 	}
-	Main.term = new vellum_DOSTerminal(80,25);
-	Main.term.onInputEvent = Main.handleInput;
+	var _this2 = Main.universes;
+	var value2 = new universes_MainMenu();
+	if(__map_reserved.MainMenu != null) {
+		_this2.setReserved("MainMenu",value2);
+	} else {
+		_this2.h["MainMenu"] = value2;
+	}
 	Main.term.load().then(function(x) {
-		Main.changeUniverse("splash");
+		Main.changeUniverse("Splash");
 		Main.term.clear();
 		Timing.onUpdate = Main.onUpdate;
 		Timing.onRender = Main.onRender;
 		Timing.start();
-	},{ fileName : "Main.hx", lineNumber : 60, className : "Main", methodName : "main"});
+	},{ fileName : "Main.hx", lineNumber : 65, className : "Main", methodName : "main"});
 };
 Main.onUpdate = function(dt) {
+	Main.intents = Main.tempIntents;
+	Main.tempIntents = [];
 	Main.universe.update.update(dt);
 };
 Main.onRender = function(dt,alpha) {
@@ -398,29 +417,23 @@ Main.onRender = function(dt,alpha) {
 Main.handleInput = function(code,type,shift,alt) {
 	var intent = Main.universe.input.check(code,type,shift,alt);
 	if(intent != null) {
-		Main.universe.handleIntent(intent);
+		Main.tempIntents.push(intent);
 		return true;
 	}
 	return false;
 };
 Math.__name__ = ["Math"];
-var Reflect = function() { };
-Reflect.__name__ = ["Reflect"];
-Reflect.compare = function(a,b) {
-	if(a == b) {
-		return 0;
-	} else if(a > b) {
-		return 1;
-	} else {
-		return -1;
-	}
+var Pauseable = function(universe) {
+	universe.onResume.push($bind(this,this.onResume));
+	universe.onPause.push($bind(this,this.onPause));
 };
-Reflect.isEnumValue = function(v) {
-	if(v != null) {
-		return v.__enum__ != null;
-	} else {
-		return false;
+Pauseable.__name__ = ["Pauseable"];
+Pauseable.prototype = {
+	onResume: function() {
 	}
+	,onPause: function() {
+	}
+	,__class__: Pauseable
 };
 var Std = function() { };
 Std.__name__ = ["Std"];
@@ -461,11 +474,8 @@ Type.getClassName = function(c) {
 	return a.join(".");
 };
 var Universe = function() {
-	this.sounds = [];
-	this.paused = true;
 	this.onResume = [];
 	this.onPause = [];
-	this.intents = new haxe_ds_EnumValueMap();
 	this.input = new vellum_Input_$Intent();
 	this.engine = new edge_Engine();
 	this.update = this.engine.createPhase();
@@ -473,26 +483,7 @@ var Universe = function() {
 };
 Universe.__name__ = ["Universe"];
 Universe.prototype = {
-	registerIntent: function(intent,cb) {
-		if(!this.intents.exists(intent)) {
-			this.intents.set(intent,[]);
-		}
-		this.intents.get(intent).push(cb);
-	}
-	,handleIntent: function(intent) {
-		if(!this.intents.exists(intent)) {
-			return;
-		}
-		var _g = 0;
-		var _g1 = this.intents.get(intent);
-		while(_g < _g1.length) {
-			var cb = _g1[_g];
-			++_g;
-			cb();
-		}
-	}
-	,pause: function() {
-		this.paused = true;
+	pause: function() {
 		var _g = 0;
 		var _g1 = this.onPause;
 		while(_g < _g1.length) {
@@ -500,16 +491,8 @@ Universe.prototype = {
 			++_g;
 			cb();
 		}
-		var _g2 = 0;
-		var _g11 = this.sounds;
-		while(_g2 < _g11.length) {
-			var howl = _g11[_g2];
-			++_g2;
-			howl.pause();
-		}
 	}
 	,resume: function() {
-		this.paused = false;
 		var _g = 0;
 		var _g1 = this.onResume;
 		while(_g < _g1.length) {
@@ -542,6 +525,15 @@ components_ChangeUniverseAfterTime.__name__ = ["components","ChangeUniverseAfter
 components_ChangeUniverseAfterTime.__interfaces__ = [edge_IComponent];
 components_ChangeUniverseAfterTime.prototype = {
 	__class__: components_ChangeUniverseAfterTime
+};
+var components_ChangeUniverseOnIntent = function(universe,intent) {
+	this.universe = universe;
+	this.intent = intent;
+};
+components_ChangeUniverseOnIntent.__name__ = ["components","ChangeUniverseOnIntent"];
+components_ChangeUniverseOnIntent.__interfaces__ = [edge_IComponent];
+components_ChangeUniverseOnIntent.prototype = {
+	__class__: components_ChangeUniverseOnIntent
 };
 var components_Image = function(src) {
 	this.map = new haxe_ds_StringMap();
@@ -581,6 +573,7 @@ var components_Sound = function(src,play,loop) {
 	this.play = play;
 	this.playing = false;
 	this.playCount = 0;
+	this.resume = false;
 	this.howl = new Howl({ src : [src], autoplay : false, loop : loop, onplay : function(id) {
 		_gthis.playing = true;
 		_gthis.soundID = id;
@@ -875,168 +868,6 @@ edge_core_NodeSystemIterator.prototype = {
 	}
 	,__class__: edge_core_NodeSystemIterator
 };
-var haxe_ds_BalancedTree = function() {
-};
-haxe_ds_BalancedTree.__name__ = ["haxe","ds","BalancedTree"];
-haxe_ds_BalancedTree.prototype = {
-	set: function(key,value) {
-		this.root = this.setLoop(key,value,this.root);
-	}
-	,get: function(key) {
-		var node = this.root;
-		while(node != null) {
-			var c = this.compare(key,node.key);
-			if(c == 0) {
-				return node.value;
-			}
-			if(c < 0) {
-				node = node.left;
-			} else {
-				node = node.right;
-			}
-		}
-		return null;
-	}
-	,exists: function(key) {
-		var node = this.root;
-		while(node != null) {
-			var c = this.compare(key,node.key);
-			if(c == 0) {
-				return true;
-			} else if(c < 0) {
-				node = node.left;
-			} else {
-				node = node.right;
-			}
-		}
-		return false;
-	}
-	,setLoop: function(k,v,node) {
-		if(node == null) {
-			return new haxe_ds_TreeNode(null,k,v,null);
-		}
-		var c = this.compare(k,node.key);
-		if(c == 0) {
-			return new haxe_ds_TreeNode(node.left,k,v,node.right,node == null?0:node._height);
-		} else if(c < 0) {
-			return this.balance(this.setLoop(k,v,node.left),node.key,node.value,node.right);
-		} else {
-			return this.balance(node.left,node.key,node.value,this.setLoop(k,v,node.right));
-		}
-	}
-	,balance: function(l,k,v,r) {
-		var hl = l == null?0:l._height;
-		var hr = r == null?0:r._height;
-		if(hl > hr + 2) {
-			var _this = l.left;
-			var tmp = _this == null?0:_this._height;
-			var _this1 = l.right;
-			if(tmp >= (_this1 == null?0:_this1._height)) {
-				return new haxe_ds_TreeNode(l.left,l.key,l.value,new haxe_ds_TreeNode(l.right,k,v,r));
-			} else {
-				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l.left,l.key,l.value,l.right.left),l.right.key,l.right.value,new haxe_ds_TreeNode(l.right.right,k,v,r));
-			}
-		} else if(hr > hl + 2) {
-			var _this2 = r.right;
-			var tmp1 = _this2 == null?0:_this2._height;
-			var _this3 = r.left;
-			if(tmp1 > (_this3 == null?0:_this3._height)) {
-				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l,k,v,r.left),r.key,r.value,r.right);
-			} else {
-				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l,k,v,r.left.left),r.left.key,r.left.value,new haxe_ds_TreeNode(r.left.right,r.key,r.value,r.right));
-			}
-		} else {
-			return new haxe_ds_TreeNode(l,k,v,r,(hl > hr?hl:hr) + 1);
-		}
-	}
-	,compare: function(k1,k2) {
-		return Reflect.compare(k1,k2);
-	}
-	,__class__: haxe_ds_BalancedTree
-};
-var haxe_ds_TreeNode = function(l,k,v,r,h) {
-	if(h == null) {
-		h = -1;
-	}
-	this.left = l;
-	this.key = k;
-	this.value = v;
-	this.right = r;
-	if(h == -1) {
-		var tmp;
-		var _this = this.left;
-		var tmp1 = _this == null?0:_this._height;
-		var _this1 = this.right;
-		if(tmp1 > (_this1 == null?0:_this1._height)) {
-			var _this2 = this.left;
-			if(_this2 == null) {
-				tmp = 0;
-			} else {
-				tmp = _this2._height;
-			}
-		} else {
-			var _this3 = this.right;
-			if(_this3 == null) {
-				tmp = 0;
-			} else {
-				tmp = _this3._height;
-			}
-		}
-		this._height = tmp + 1;
-	} else {
-		this._height = h;
-	}
-};
-haxe_ds_TreeNode.__name__ = ["haxe","ds","TreeNode"];
-haxe_ds_TreeNode.prototype = {
-	__class__: haxe_ds_TreeNode
-};
-var haxe_ds_EnumValueMap = function() {
-	haxe_ds_BalancedTree.call(this);
-};
-haxe_ds_EnumValueMap.__name__ = ["haxe","ds","EnumValueMap"];
-haxe_ds_EnumValueMap.__interfaces__ = [haxe_IMap];
-haxe_ds_EnumValueMap.__super__ = haxe_ds_BalancedTree;
-haxe_ds_EnumValueMap.prototype = $extend(haxe_ds_BalancedTree.prototype,{
-	compare: function(k1,k2) {
-		var d = k1[1] - k2[1];
-		if(d != 0) {
-			return d;
-		}
-		var p1 = k1.slice(2);
-		var p2 = k2.slice(2);
-		if(p1.length == 0 && p2.length == 0) {
-			return 0;
-		}
-		return this.compareArgs(p1,p2);
-	}
-	,compareArgs: function(a1,a2) {
-		var ld = a1.length - a2.length;
-		if(ld != 0) {
-			return ld;
-		}
-		var _g1 = 0;
-		var _g = a1.length;
-		while(_g1 < _g) {
-			var i = _g1++;
-			var d = this.compareArg(a1[i],a2[i]);
-			if(d != 0) {
-				return d;
-			}
-		}
-		return 0;
-	}
-	,compareArg: function(v1,v2) {
-		if(Reflect.isEnumValue(v1) && Reflect.isEnumValue(v2)) {
-			return this.compare(v1,v2);
-		} else if((v1 instanceof Array) && v1.__enum__ == null && ((v2 instanceof Array) && v2.__enum__ == null)) {
-			return this.compareArgs(v1,v2);
-		} else {
-			return Reflect.compare(v1,v2);
-		}
-	}
-	,__class__: haxe_ds_EnumValueMap
-});
 var haxe_ds_ObjectMap = function() {
 	this.h = { __keys__ : { }};
 };
@@ -1567,6 +1398,72 @@ systems_ChangeUniverseAfterTime_$SystemProcess.prototype = {
 	}
 	,__class__: systems_ChangeUniverseAfterTime_$SystemProcess
 };
+var systems_ChangeUniverseOnIntent = function() {
+	this.__process__ = new systems_ChangeUniverseOnIntent_$SystemProcess(this);
+};
+systems_ChangeUniverseOnIntent.__name__ = ["systems","ChangeUniverseOnIntent"];
+systems_ChangeUniverseOnIntent.__interfaces__ = [edge_ISystem];
+systems_ChangeUniverseOnIntent.prototype = {
+	update: function(change) {
+		var _g = 0;
+		var _g1 = Main.intents;
+		while(_g < _g1.length) {
+			var intent = _g1[_g];
+			++_g;
+			if(intent == change.intent) {
+				Main.changeUniverse(change.universe);
+			}
+		}
+		return true;
+	}
+	,__class__: systems_ChangeUniverseOnIntent
+};
+var systems_ChangeUniverseOnIntent_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_ChangeUniverseOnIntent_$SystemProcess.__name__ = ["systems","ChangeUniverseOnIntent_SystemProcess"];
+systems_ChangeUniverseOnIntent_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_ChangeUniverseOnIntent_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			data = tmp.next().data;
+			result = this.system.update(data.change);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 1;
+		var o = { change : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_ChangeUniverseOnIntent)) {
+				o.change = component;
+				count = 0;
+				break;
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_ChangeUniverseOnIntent_$SystemProcess
+};
 var systems_ImageRenderer = function() {
 	this.__process__ = new systems_ImageRenderer_$SystemProcess(this);
 };
@@ -1817,41 +1714,48 @@ systems_Kinematics_$SystemProcess.prototype = {
 	}
 	,__class__: systems_Kinematics_$SystemProcess
 };
-var systems_Sound = function() {
+var systems_Sound = function(universe) {
+	Pauseable.call(this,universe);
 	this.__process__ = new systems_Sound_$SystemProcess(this);
 };
 systems_Sound.__name__ = ["systems","Sound"];
 systems_Sound.__interfaces__ = [edge_ISystem];
-systems_Sound.prototype = {
-	updateAdded: function(entity,data) {
-		Main.universe.sounds.push(data.sound.howl);
-	}
-	,updateRemoved: function(entity,data) {
-		HxOverrides.remove(Main.universe.sounds,data.sound.howl);
+systems_Sound.__super__ = Pauseable;
+systems_Sound.prototype = $extend(Pauseable.prototype,{
+	onPause: function() {
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			var sound = tmp.next().data.sound;
+			if(sound.howl.playing()) {
+				sound.howl.pause();
+				sound.resume = true;
+			}
+		}
 	}
 	,update: function(sound) {
-		if(sound.play) {
+		if(sound.play || sound.resume) {
 			sound.howl.play();
 			sound.play = false;
+			sound.resume = false;
 		}
 		return true;
 	}
 	,__class__: systems_Sound
-};
+});
 var systems_Sound_$SystemProcess = function(system) {
 	this.system = system;
 	this.updateItems = new edge_View();
+	system.updateItems = new edge_View();
 };
 systems_Sound_$SystemProcess.__name__ = ["systems","Sound_SystemProcess"];
 systems_Sound_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
 systems_Sound_$SystemProcess.prototype = {
 	removeEntity: function(entity) {
-		var removed = this.updateItems.tryRemove(entity);
-		if(removed != null) {
-			this.system.updateRemoved(entity,removed);
-		}
+		this.updateItems.tryRemove(entity);
+		this.system.updateItems.tryRemove(entity);
 	}
 	,addEntity: function(entity) {
+		this.updateItemsMatchRequirements(entity);
 		this.updateMatchRequirements(entity);
 	}
 	,update: function(engine,delta) {
@@ -1867,8 +1771,8 @@ systems_Sound_$SystemProcess.prototype = {
 		}
 		return result;
 	}
-	,updateMatchRequirements: function(entity) {
-		var removed = this.updateItems.tryRemove(entity);
+	,updateItemsMatchRequirements: function(entity) {
+		this.system.updateItems.tryRemove(entity);
 		var count = 1;
 		var o = { sound : null};
 		var _this = entity.map;
@@ -1881,12 +1785,26 @@ systems_Sound_$SystemProcess.prototype = {
 				break;
 			}
 		}
-		var added = count == 0 && this.updateItems.tryAdd(entity,o);
-		if(null != removed && !added) {
-			this.system.updateRemoved(entity,removed);
+		if(count == 0) {
+			this.system.updateItems.tryAdd(entity,o);
 		}
-		if(added && null == removed) {
-			this.system.updateAdded(entity,o);
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 1;
+		var o = { sound : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Sound)) {
+				o.sound = component;
+				count = 0;
+				break;
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
 		}
 	}
 	,__class__: systems_Sound_$SystemProcess
@@ -1965,30 +1883,44 @@ thx_Either.Left = function(value) { var $x = ["Left",0,value]; $x.__enum__ = thx
 thx_Either.Right = function(value) { var $x = ["Right",1,value]; $x.__enum__ = thx_Either; $x.toString = $estr; return $x; };
 var universes_Intro = function() {
 	Universe.call(this);
+	this.input.bind(new vellum_KeyBind(27,vellum_KeyEventType.DOWN),Intent.Skip);
+	this.update.add(new systems_ChangeUniverseOnIntent());
 	this.render.add(new systems_TextRenderer());
-	this.engine.create([new components_Text("Intro..."),new components_Position(0,0)]);
+	this.engine.create([new components_Text("No intro yet!"),new components_Position(0,0)]);
+	this.engine.create([new components_Text("Press [ESC] to continue..."),new components_Position(Main.term.get_width() - 26,Main.term.get_height() - 1)]);
+	this.engine.create([new components_ChangeUniverseOnIntent("MainMenu",Intent.Skip)]);
 };
 universes_Intro.__name__ = ["universes","Intro"];
 universes_Intro.__super__ = Universe;
 universes_Intro.prototype = $extend(Universe.prototype,{
 	__class__: universes_Intro
 });
+var universes_MainMenu = function() {
+	Universe.call(this);
+	this.input.bind(new vellum_KeyBind(27,vellum_KeyEventType.DOWN),Intent.Back);
+	this.render.add(new systems_TextRenderer());
+	this.engine.create([new components_Text("== Main Menu =="),new components_Position((Main.term.get_width() - 15) / 2,0)]);
+};
+universes_MainMenu.__name__ = ["universes","MainMenu"];
+universes_MainMenu.__super__ = Universe;
+universes_MainMenu.prototype = $extend(Universe.prototype,{
+	__class__: universes_MainMenu
+});
 var universes_Splash = function() {
 	Universe.call(this);
 	this.input.bind(new vellum_KeyBind(27,vellum_KeyEventType.DOWN),Intent.Skip);
 	this.update.add(new systems_Kinematics());
 	this.update.add(new systems_KeepInBounds());
-	this.update.add(new systems_Sound());
+	this.update.add(new systems_Sound(this));
 	this.update.add(new systems_ChangeUniverseAfterTime());
+	this.update.add(new systems_ChangeUniverseOnIntent());
 	this.render.add(new systems_ImageRenderer());
 	this.render.add(new systems_TextRenderer());
-	this.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.3939393939393945)]);
-	this.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.3939393939393945),new components_Bounds().y(12,100)]);
+	this.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.393939393939394)]);
+	this.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.393939393939394),new components_Bounds().y(12,100)]);
 	this.engine.create([new components_Sound("blazingmammothgames.ogg",true,false)]);
-	this.engine.create([new components_ChangeUniverseAfterTime("intro",5)]);
-	this.registerIntent(Intent.Skip,function() {
-		Main.changeUniverse("intro");
-	});
+	this.engine.create([new components_ChangeUniverseAfterTime("Intro",5)]);
+	this.engine.create([new components_ChangeUniverseOnIntent("Intro",Intent.Skip)]);
 };
 universes_Splash.__name__ = ["universes","Splash"];
 universes_Splash.__super__ = Universe;
@@ -2361,13 +2293,15 @@ Bool.__ename__ = ["Bool"];
 var Class = { __name__ : ["Class"]};
 var Enum = { };
 var global = window;
-Logo.src = StringTools.replace("                         .        \n                         ..       \n             .            ..      \n            ..            ..      \n           ..            ...      \n           ..      .   .....      \n     .     ...    ..  .....       \n     ...    .... .... ....        \n     ....  ...............        \n      ... ...::...::..:..         \n      ......::######::...         \n       .:..::##++++##:..          \n       ..:::##++++++##..    .     \n       ...::#++####++#...  ..     \n        ...:#++####++#:..  ..     \n   .    ..::#+++##+++#:.. ...     \n   ...  ..::#+++##+++#::....      \n ###... ..::##++##++##::....  ### \n##+#......::%##++++##:::...   #+## \n#++#.....:::%%#++++#%::...    #++# \n#+## ..::::%%%#++++#%::..   . ##+# \n#+#  ...::%%%%#++++#%%:.. ...  #+# \n#+## ..:::%%%##++++##::.....  ##+# \n#++##...:::%%#++++++#:::.... ##++# \n#+++# ...:::##++##++##:::..  #+++# \n##++###..:###++####++###...###++## \n ##+++#####++++#%%#++++#####+++## \n  ##++++#+++++##%%##+++++#++++##  \n   ##+++++++###%:::###+++++++##   \n    ###+++###..:.....###+++###    \n      #####   ...      #####      \n      #####   ...      #####      ","\r","");
+Logo.src = StringTools.replace("                         .        \r\n                         ..       \r\n             .            ..      \r\n            ..            ..      \r\n           ..            ...      \r\n           ..      .   .....      \r\n     .     ...    ..  .....       \r\n     ...    .... .... ....        \r\n     ....  ...............        \r\n      ... ...::...::..:..         \r\n      ......::######::...         \r\n       .:..::##++++##:..          \r\n       ..:::##++++++##..    .     \r\n       ...::#++####++#...  ..     \r\n        ...:#++####++#:..  ..     \r\n   .    ..::#+++##+++#:.. ...     \r\n   ...  ..::#+++##+++#::....      \r\n ###... ..::##++##++##::....  ### \r\n##+#......::%##++++##:::...   #+## \r\n#++#.....:::%%#++++#%::...    #++# \r\n#+## ..::::%%%#++++#%::..   . ##+# \r\n#+#  ...::%%%%#++++#%%:.. ...  #+# \r\n#+## ..:::%%%##++++##::.....  ##+# \r\n#++##...:::%%#++++++#:::.... ##++# \r\n#+++# ...:::##++##++##:::..  #+++# \r\n##++###..:###++####++###...###++## \r\n ##+++#####++++#%%#++++#####+++## \r\n  ##++++#+++++##%%##+++++#++++##  \r\n   ##+++++++###%:::###+++++++##   \r\n    ###+++###..:.....###+++###    \r\n      #####   ...      #####      \r\n      #####   ...      #####      ","\r","");
 Main.universes = new haxe_ds_StringMap();
+Main.intents = [];
+Main.tempIntents = [];
 Timing.animationFrameID = 0;
 Timing.time = 0;
 Timing.lastTime = 0;
 Timing.accumulator = 0;
-Timing.dt = 0.0333333333333333329;
+Timing.dt = 0.033333333333333333;
 Timing.alpha = 0;
 haxe_ds_ObjectMap.count = 0;
 js_Boot.__toStr = { }.toString;

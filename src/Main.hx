@@ -27,6 +27,9 @@ class Main {
     public static var universes:StringMap<Universe> = new StringMap<Universe>();
     public static var universe:Universe = null;
 
+    public static var intents:Array<Intent> = new Array<Intent>();
+    private static var tempIntents:Array<Intent> = new Array<Intent>();
+
     #if debug
     private static var stats:Stats;
     #end
@@ -51,15 +54,17 @@ class Main {
         #end
 
         // ready..
-        universes.set("splash", new universes.Splash());
-        universes.set("intro", new universes.Intro());
-
-        // set..
         term = new DOSTerminal(80, 25);
         term.onInputEvent = handleInput;
+        
+        universes.set("Splash", new universes.Splash());
+        universes.set("Intro", new universes.Intro());
+        universes.set("MainMenu", new universes.MainMenu());
+
+        // set..
         term.load().then(function(x:Bool) {
             // go!
-            changeUniverse("splash");
+            changeUniverse("Splash");
             term.clear();
             Timing.onUpdate = onUpdate;
             Timing.onRender = onRender;
@@ -68,6 +73,8 @@ class Main {
     }
 
     private static function onUpdate(dt:Float) {
+        intents = tempIntents;
+        tempIntents = new Array<Intent>();
         universe.update.update(dt);
     }
 
@@ -84,7 +91,7 @@ class Main {
     private static function handleInput(code:KeyCode, type:KeyEventType, shift:Bool, alt:Bool):Bool {
         var intent:Intent = universe.input.check(code, type, shift, alt);
         if(intent != null) {
-            universe.handleIntent(intent);
+            tempIntents.push(intent);
             return true;
         }
         return false;
