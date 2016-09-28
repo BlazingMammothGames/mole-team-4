@@ -4,6 +4,7 @@ import edge.Engine;
 import edge.Phase;
 import vellum.Input;
 
+@:autoBuild(macros.Universes.name())
 class Universe {
 	public var engine:Engine = new Engine();
 	public var update:Phase;

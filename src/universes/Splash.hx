@@ -39,7 +39,7 @@ class Splash extends Universe {
                 .y(12, 100),
         ]);
         engine.create([new components.Sound("blazingmammothgames.ogg", true, false)]);
-        engine.create([new components.ChangeUniverseAfterTime("Intro", 5)]);
-        engine.create([new components.ChangeUniverseOnIntent("Intro", Intent.Skip)]);
+        engine.create([new components.ChangeUniverseAfterTime(Intro.name, 5)]);
+        engine.create([new components.ChangeUniverseOnIntent(Intro.name, Intent.Skip)]);
     }
 }

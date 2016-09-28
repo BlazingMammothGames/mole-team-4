@@ -10,6 +10,7 @@ class Intro extends Universe {
         super();
 
         input.bind(new KeyBind(KeyCode.escape, KeyEventType.DOWN), Intent.Skip);
+        input.bind(new KeyBind(KeyCode.enter, KeyEventType.DOWN), Intent.Skip);
 
         update.add(new systems.ChangeUniverseOnIntent());
         render.add(new systems.TextRenderer());
@@ -22,6 +23,6 @@ class Intro extends Universe {
             new components.Text("Press [ESC] to continue..."),
             new components.Position(Main.term.width - 26, Main.term.height - 1)
         ]);
-        engine.create([new components.ChangeUniverseOnIntent("MainMenu", Intent.Skip)]);
+        engine.create([new components.ChangeUniverseOnIntent(MainMenu.name, Intent.Skip)]);
     }
 }

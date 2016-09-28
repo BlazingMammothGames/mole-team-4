@@ -15,7 +15,7 @@ class MainMenu extends Universe {
 
         engine.create([
             new components.Text("== Main Menu =="),
-            new components.Position((Main.term.width - 15) / 2, 0)
+            new components.Position((Main.term.width - 15) / 2, 1)
         ]);
     }
 }

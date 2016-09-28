@@ -351,14 +351,14 @@ haxe_ds_StringMap.prototype = {
 var Main = function() { };
 Main.__name__ = ["Main"];
 Main.changeUniverse = function(verse) {
-	var _this = Main.universes;
+	var _this = Main._universes;
 	if(!(__map_reserved[verse] != null?_this.existsReserved(verse):_this.h.hasOwnProperty(verse))) {
 		throw new js__$Boot_HaxeError("Universe " + verse + " doesn't exist!");
 	}
 	if(Main.universe != null) {
 		Main.universe.pause();
 	}
-	var _this1 = Main.universes;
+	var _this1 = Main._universes;
 	Main.universe = __map_reserved[verse] != null?_this1.getReserved(verse):_this1.h[verse];
 	Main.universe.resume();
 };
@@ -372,21 +372,21 @@ Main.main = function() {
 	window.document.head.appendChild(script);
 	Main.term = new vellum_DOSTerminal(80,25);
 	Main.term.onInputEvent = Main.handleInput;
-	var _this = Main.universes;
+	var _this = Main._universes;
 	var value = new universes_Splash();
 	if(__map_reserved.Splash != null) {
 		_this.setReserved("Splash",value);
 	} else {
 		_this.h["Splash"] = value;
 	}
-	var _this1 = Main.universes;
+	var _this1 = Main._universes;
 	var value1 = new universes_Intro();
 	if(__map_reserved.Intro != null) {
 		_this1.setReserved("Intro",value1);
 	} else {
 		_this1.h["Intro"] = value1;
 	}
-	var _this2 = Main.universes;
+	var _this2 = Main._universes;
 	var value2 = new universes_MainMenu();
 	if(__map_reserved.MainMenu != null) {
 		_this2.setReserved("MainMenu",value2);
@@ -1884,6 +1884,7 @@ thx_Either.Right = function(value) { var $x = ["Right",1,value]; $x.__enum__ = t
 var universes_Intro = function() {
 	Universe.call(this);
 	this.input.bind(new vellum_KeyBind(27,vellum_KeyEventType.DOWN),Intent.Skip);
+	this.input.bind(new vellum_KeyBind(13,vellum_KeyEventType.DOWN),Intent.Skip);
 	this.update.add(new systems_ChangeUniverseOnIntent());
 	this.render.add(new systems_TextRenderer());
 	this.engine.create([new components_Text("No intro yet!"),new components_Position(0,0)]);
@@ -2294,7 +2295,7 @@ var Class = { __name__ : ["Class"]};
 var Enum = { };
 var global = window;
 Logo.src = StringTools.replace("                         .        \r\n                         ..       \r\n             .            ..      \r\n            ..            ..      \r\n           ..            ...      \r\n           ..      .   .....      \r\n     .     ...    ..  .....       \r\n     ...    .... .... ....        \r\n     ....  ...............        \r\n      ... ...::...::..:..         \r\n      ......::######::...         \r\n       .:..::##++++##:..          \r\n       ..:::##++++++##..    .     \r\n       ...::#++####++#...  ..     \r\n        ...:#++####++#:..  ..     \r\n   .    ..::#+++##+++#:.. ...     \r\n   ...  ..::#+++##+++#::....      \r\n ###... ..::##++##++##::....  ### \r\n##+#......::%##++++##:::...   #+## \r\n#++#.....:::%%#++++#%::...    #++# \r\n#+## ..::::%%%#++++#%::..   . ##+# \r\n#+#  ...::%%%%#++++#%%:.. ...  #+# \r\n#+## ..:::%%%##++++##::.....  ##+# \r\n#++##...:::%%#++++++#:::.... ##++# \r\n#+++# ...:::##++##++##:::..  #+++# \r\n##++###..:###++####++###...###++## \r\n ##+++#####++++#%%#++++#####+++## \r\n  ##++++#+++++##%%##+++++#++++##  \r\n   ##+++++++###%:::###+++++++##   \r\n    ###+++###..:.....###+++###    \r\n      #####   ...      #####      \r\n      #####   ...      #####      ","\r","");
-Main.universes = new haxe_ds_StringMap();
+Main._universes = new haxe_ds_StringMap();
 Main.intents = [];
 Main.tempIntents = [];
 Timing.animationFrameID = 0;

@@ -24,7 +24,7 @@ extern class Stats {
 
 class Main {
     public static var term:DOSTerminal;
-    public static var universes:StringMap<Universe> = new StringMap<Universe>();
+    private static var _universes:StringMap<Universe> = new StringMap<Universe>();
     public static var universe:Universe = null;
 
     public static var intents:Array<Intent> = new Array<Intent>();
@@ -35,9 +35,9 @@ class Main {
     #end
 
     public static function changeUniverse(verse:String):Void {
-        if(!universes.exists(verse)) throw 'Universe ${verse} doesn\'t exist!';
+        if(!_universes.exists(verse)) throw 'Universe ${verse} doesn\'t exist!';
         if(universe != null) universe.pause();
-        universe = universes.get(verse);
+        universe = _universes.get(verse);
         universe.resume();
     }
 
@@ -57,14 +57,14 @@ class Main {
         term = new DOSTerminal(80, 25);
         term.onInputEvent = handleInput;
         
-        universes.set("Splash", new universes.Splash());
-        universes.set("Intro", new universes.Intro());
-        universes.set("MainMenu", new universes.MainMenu());
+        _universes.set(universes.Splash.name, new universes.Splash());
+        _universes.set(universes.Intro.name, new universes.Intro());
+        _universes.set(universes.MainMenu.name, new universes.MainMenu());
 
         // set..
         term.load().then(function(x:Bool) {
             // go!
-            changeUniverse("Splash");
+            changeUniverse(universes.Splash.name);
             term.clear();
             Timing.onUpdate = onUpdate;
             Timing.onRender = onRender;
