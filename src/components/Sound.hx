@@ -6,6 +6,7 @@ import howler.Howl.HowlOptions;
 
 class Sound implements IComponent {
 	public var howl:Howl;
+	public var soundID:Int;
 
 	public var loop:Bool;
 	public var play:Bool;
@@ -22,6 +23,10 @@ class Sound implements IComponent {
 			src: [src],
 			autoplay: false,
 			loop: loop,
+			onplay: function(id:Int) {
+				playing = true;
+				soundID = id;
+			},
 			onend: function(id:Int) {
 				playCount++;
 				playing = howl.loop();

@@ -193,6 +193,14 @@ HxOverrides.cca = function(s,index) {
 	}
 	return x;
 };
+HxOverrides.remove = function(a,obj) {
+	var i = a.indexOf(obj);
+	if(i == -1) {
+		return false;
+	}
+	a.splice(i,1);
+	return true;
+};
 HxOverrides.iter = function(a) {
 	return { cur : 0, arr : a, hasNext : function() {
 		return this.cur < this.arr.length;
@@ -200,6 +208,10 @@ HxOverrides.iter = function(a) {
 		return this.arr[this.cur++];
 	}};
 };
+var Intent = { __ename__ : true, __constructs__ : ["Skip"] };
+Intent.Skip = ["Skip",0];
+Intent.Skip.toString = $estr;
+Intent.Skip.__enum__ = Intent;
 var List = function() {
 	this.length = 0;
 };
@@ -331,12 +343,14 @@ Main.__name__ = ["Main"];
 Main.changeUniverse = function(verse) {
 	var _this = Main.universes;
 	if(!(__map_reserved[verse] != null?_this.existsReserved(verse):_this.h.hasOwnProperty(verse))) {
-		throw new js__$Boot_HaxeError("Universe " + verse + " doesn' exist!");
+		throw new js__$Boot_HaxeError("Universe " + verse + " doesn't exist!");
+	}
+	if(Main.universe != null) {
+		Main.universe.pause();
 	}
 	var _this1 = Main.universes;
 	Main.universe = __map_reserved[verse] != null?_this1.getReserved(verse):_this1.h[verse];
-	window.console.log("Switch to universe '" + verse + "'!",Main.universe);
-	return Main.universe;
+	Main.universe.resume();
 };
 Main.main = function() {
 	var script = window.document.createElement("script");
@@ -346,40 +360,29 @@ Main.main = function() {
 	};
 	script.src = "//rawgit.com/mrdoob/stats.js/master/build/stats.min.js";
 	window.document.head.appendChild(script);
-	var splash = new Universe();
-	splash.update.add(new systems_Kinematics());
-	splash.update.add(new systems_KeepInBounds());
-	splash.update.add(new systems_Sound());
-	splash.update.add(new systems_ChangeUniverse());
-	splash.render.add(new systems_ImageRenderer());
-	splash.render.add(new systems_TextRenderer());
 	var _this = Main.universes;
+	var value = new universes_Splash();
 	if(__map_reserved.splash != null) {
-		_this.setReserved("splash",splash);
+		_this.setReserved("splash",value);
 	} else {
-		_this.h["splash"] = splash;
+		_this.h["splash"] = value;
 	}
-	var intro = new Universe();
-	intro.render.add(new systems_TextRenderer());
 	var _this1 = Main.universes;
+	var value1 = new universes_Intro();
 	if(__map_reserved.intro != null) {
-		_this1.setReserved("intro",intro);
+		_this1.setReserved("intro",value1);
 	} else {
-		_this1.h["intro"] = intro;
+		_this1.h["intro"] = value1;
 	}
-	splash.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.393939393939394)]);
-	splash.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.393939393939394),new components_Bounds().y(12,100)]);
-	splash.engine.create([new components_Sound("blazingmammothgames.ogg",true,false)]);
-	splash.engine.create([new components_ChangeUniverseAfterTime("intro",5)]);
-	intro.engine.create([new components_Text("Intro..."),new components_Position(0,0)]);
 	Main.term = new vellum_DOSTerminal(80,25);
+	Main.term.onInputEvent = Main.handleInput;
 	Main.term.load().then(function(x) {
 		Main.changeUniverse("splash");
 		Main.term.clear();
 		Timing.onUpdate = Main.onUpdate;
 		Timing.onRender = Main.onRender;
 		Timing.start();
-	},{ fileName : "Main.hx", lineNumber : 98, className : "Main", methodName : "main"});
+	},{ fileName : "Main.hx", lineNumber : 60, className : "Main", methodName : "main"});
 };
 Main.onUpdate = function(dt) {
 	Main.universe.update.update(dt);
@@ -392,7 +395,33 @@ Main.onRender = function(dt,alpha) {
 		Main.stats.update();
 	}
 };
+Main.handleInput = function(code,type,shift,alt) {
+	var intent = Main.universe.input.check(code,type,shift,alt);
+	if(intent != null) {
+		Main.universe.handleIntent(intent);
+		return true;
+	}
+	return false;
+};
 Math.__name__ = ["Math"];
+var Reflect = function() { };
+Reflect.__name__ = ["Reflect"];
+Reflect.compare = function(a,b) {
+	if(a == b) {
+		return 0;
+	} else if(a > b) {
+		return 1;
+	} else {
+		return -1;
+	}
+};
+Reflect.isEnumValue = function(v) {
+	if(v != null) {
+		return v.__enum__ != null;
+	} else {
+		return false;
+	}
+};
 var Std = function() { };
 Std.__name__ = ["Std"];
 Std.string = function(s) {
@@ -432,13 +461,64 @@ Type.getClassName = function(c) {
 	return a.join(".");
 };
 var Universe = function() {
+	this.sounds = [];
+	this.paused = true;
+	this.onResume = [];
+	this.onPause = [];
+	this.intents = new haxe_ds_EnumValueMap();
+	this.input = new vellum_Input_$Intent();
 	this.engine = new edge_Engine();
 	this.update = this.engine.createPhase();
 	this.render = this.engine.createPhase();
 };
 Universe.__name__ = ["Universe"];
 Universe.prototype = {
-	__class__: Universe
+	registerIntent: function(intent,cb) {
+		if(!this.intents.exists(intent)) {
+			this.intents.set(intent,[]);
+		}
+		this.intents.get(intent).push(cb);
+	}
+	,handleIntent: function(intent) {
+		if(!this.intents.exists(intent)) {
+			return;
+		}
+		var _g = 0;
+		var _g1 = this.intents.get(intent);
+		while(_g < _g1.length) {
+			var cb = _g1[_g];
+			++_g;
+			cb();
+		}
+	}
+	,pause: function() {
+		this.paused = true;
+		var _g = 0;
+		var _g1 = this.onPause;
+		while(_g < _g1.length) {
+			var cb = _g1[_g];
+			++_g;
+			cb();
+		}
+		var _g2 = 0;
+		var _g11 = this.sounds;
+		while(_g2 < _g11.length) {
+			var howl = _g11[_g2];
+			++_g2;
+			howl.pause();
+		}
+	}
+	,resume: function() {
+		this.paused = false;
+		var _g = 0;
+		var _g1 = this.onResume;
+		while(_g < _g1.length) {
+			var cb = _g1[_g];
+			++_g;
+			cb();
+		}
+	}
+	,__class__: Universe
 };
 var edge_IComponent = function() { };
 edge_IComponent.__name__ = ["edge","IComponent"];
@@ -501,7 +581,10 @@ var components_Sound = function(src,play,loop) {
 	this.play = play;
 	this.playing = false;
 	this.playCount = 0;
-	this.howl = new Howl({ src : [src], autoplay : false, loop : loop, onend : function(id) {
+	this.howl = new Howl({ src : [src], autoplay : false, loop : loop, onplay : function(id) {
+		_gthis.playing = true;
+		_gthis.soundID = id;
+	}, onend : function(id1) {
 		_gthis.playCount++;
 		_gthis.playing = _gthis.howl.loop();
 	}});
@@ -792,6 +875,168 @@ edge_core_NodeSystemIterator.prototype = {
 	}
 	,__class__: edge_core_NodeSystemIterator
 };
+var haxe_ds_BalancedTree = function() {
+};
+haxe_ds_BalancedTree.__name__ = ["haxe","ds","BalancedTree"];
+haxe_ds_BalancedTree.prototype = {
+	set: function(key,value) {
+		this.root = this.setLoop(key,value,this.root);
+	}
+	,get: function(key) {
+		var node = this.root;
+		while(node != null) {
+			var c = this.compare(key,node.key);
+			if(c == 0) {
+				return node.value;
+			}
+			if(c < 0) {
+				node = node.left;
+			} else {
+				node = node.right;
+			}
+		}
+		return null;
+	}
+	,exists: function(key) {
+		var node = this.root;
+		while(node != null) {
+			var c = this.compare(key,node.key);
+			if(c == 0) {
+				return true;
+			} else if(c < 0) {
+				node = node.left;
+			} else {
+				node = node.right;
+			}
+		}
+		return false;
+	}
+	,setLoop: function(k,v,node) {
+		if(node == null) {
+			return new haxe_ds_TreeNode(null,k,v,null);
+		}
+		var c = this.compare(k,node.key);
+		if(c == 0) {
+			return new haxe_ds_TreeNode(node.left,k,v,node.right,node == null?0:node._height);
+		} else if(c < 0) {
+			return this.balance(this.setLoop(k,v,node.left),node.key,node.value,node.right);
+		} else {
+			return this.balance(node.left,node.key,node.value,this.setLoop(k,v,node.right));
+		}
+	}
+	,balance: function(l,k,v,r) {
+		var hl = l == null?0:l._height;
+		var hr = r == null?0:r._height;
+		if(hl > hr + 2) {
+			var _this = l.left;
+			var tmp = _this == null?0:_this._height;
+			var _this1 = l.right;
+			if(tmp >= (_this1 == null?0:_this1._height)) {
+				return new haxe_ds_TreeNode(l.left,l.key,l.value,new haxe_ds_TreeNode(l.right,k,v,r));
+			} else {
+				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l.left,l.key,l.value,l.right.left),l.right.key,l.right.value,new haxe_ds_TreeNode(l.right.right,k,v,r));
+			}
+		} else if(hr > hl + 2) {
+			var _this2 = r.right;
+			var tmp1 = _this2 == null?0:_this2._height;
+			var _this3 = r.left;
+			if(tmp1 > (_this3 == null?0:_this3._height)) {
+				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l,k,v,r.left),r.key,r.value,r.right);
+			} else {
+				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l,k,v,r.left.left),r.left.key,r.left.value,new haxe_ds_TreeNode(r.left.right,r.key,r.value,r.right));
+			}
+		} else {
+			return new haxe_ds_TreeNode(l,k,v,r,(hl > hr?hl:hr) + 1);
+		}
+	}
+	,compare: function(k1,k2) {
+		return Reflect.compare(k1,k2);
+	}
+	,__class__: haxe_ds_BalancedTree
+};
+var haxe_ds_TreeNode = function(l,k,v,r,h) {
+	if(h == null) {
+		h = -1;
+	}
+	this.left = l;
+	this.key = k;
+	this.value = v;
+	this.right = r;
+	if(h == -1) {
+		var tmp;
+		var _this = this.left;
+		var tmp1 = _this == null?0:_this._height;
+		var _this1 = this.right;
+		if(tmp1 > (_this1 == null?0:_this1._height)) {
+			var _this2 = this.left;
+			if(_this2 == null) {
+				tmp = 0;
+			} else {
+				tmp = _this2._height;
+			}
+		} else {
+			var _this3 = this.right;
+			if(_this3 == null) {
+				tmp = 0;
+			} else {
+				tmp = _this3._height;
+			}
+		}
+		this._height = tmp + 1;
+	} else {
+		this._height = h;
+	}
+};
+haxe_ds_TreeNode.__name__ = ["haxe","ds","TreeNode"];
+haxe_ds_TreeNode.prototype = {
+	__class__: haxe_ds_TreeNode
+};
+var haxe_ds_EnumValueMap = function() {
+	haxe_ds_BalancedTree.call(this);
+};
+haxe_ds_EnumValueMap.__name__ = ["haxe","ds","EnumValueMap"];
+haxe_ds_EnumValueMap.__interfaces__ = [haxe_IMap];
+haxe_ds_EnumValueMap.__super__ = haxe_ds_BalancedTree;
+haxe_ds_EnumValueMap.prototype = $extend(haxe_ds_BalancedTree.prototype,{
+	compare: function(k1,k2) {
+		var d = k1[1] - k2[1];
+		if(d != 0) {
+			return d;
+		}
+		var p1 = k1.slice(2);
+		var p2 = k2.slice(2);
+		if(p1.length == 0 && p2.length == 0) {
+			return 0;
+		}
+		return this.compareArgs(p1,p2);
+	}
+	,compareArgs: function(a1,a2) {
+		var ld = a1.length - a2.length;
+		if(ld != 0) {
+			return ld;
+		}
+		var _g1 = 0;
+		var _g = a1.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var d = this.compareArg(a1[i],a2[i]);
+			if(d != 0) {
+				return d;
+			}
+		}
+		return 0;
+	}
+	,compareArg: function(v1,v2) {
+		if(Reflect.isEnumValue(v1) && Reflect.isEnumValue(v2)) {
+			return this.compare(v1,v2);
+		} else if((v1 instanceof Array) && v1.__enum__ == null && ((v2 instanceof Array) && v2.__enum__ == null)) {
+			return this.compareArgs(v1,v2);
+		} else {
+			return Reflect.compare(v1,v2);
+		}
+	}
+	,__class__: haxe_ds_EnumValueMap
+});
 var haxe_ds_ObjectMap = function() {
 	this.h = { __keys__ : { }};
 };
@@ -1260,12 +1505,12 @@ promhx_base_EventLoop.continueOnNextLoop = function() {
 var promhx_error_PromiseError = { __ename__ : true, __constructs__ : ["AlreadyResolved","DownstreamNotFullfilled"] };
 promhx_error_PromiseError.AlreadyResolved = function(message) { var $x = ["AlreadyResolved",0,message]; $x.__enum__ = promhx_error_PromiseError; $x.toString = $estr; return $x; };
 promhx_error_PromiseError.DownstreamNotFullfilled = function(message) { var $x = ["DownstreamNotFullfilled",1,message]; $x.__enum__ = promhx_error_PromiseError; $x.toString = $estr; return $x; };
-var systems_ChangeUniverse = function() {
-	this.__process__ = new systems_ChangeUniverse_$SystemProcess(this);
+var systems_ChangeUniverseAfterTime = function() {
+	this.__process__ = new systems_ChangeUniverseAfterTime_$SystemProcess(this);
 };
-systems_ChangeUniverse.__name__ = ["systems","ChangeUniverse"];
-systems_ChangeUniverse.__interfaces__ = [edge_ISystem];
-systems_ChangeUniverse.prototype = {
+systems_ChangeUniverseAfterTime.__name__ = ["systems","ChangeUniverseAfterTime"];
+systems_ChangeUniverseAfterTime.__interfaces__ = [edge_ISystem];
+systems_ChangeUniverseAfterTime.prototype = {
 	update: function(change) {
 		change.time -= this.timeDelta;
 		if(change.time <= 0) {
@@ -1273,15 +1518,15 @@ systems_ChangeUniverse.prototype = {
 		}
 		return true;
 	}
-	,__class__: systems_ChangeUniverse
+	,__class__: systems_ChangeUniverseAfterTime
 };
-var systems_ChangeUniverse_$SystemProcess = function(system) {
+var systems_ChangeUniverseAfterTime_$SystemProcess = function(system) {
 	this.system = system;
 	this.updateItems = new edge_View();
 };
-systems_ChangeUniverse_$SystemProcess.__name__ = ["systems","ChangeUniverse_SystemProcess"];
-systems_ChangeUniverse_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
-systems_ChangeUniverse_$SystemProcess.prototype = {
+systems_ChangeUniverseAfterTime_$SystemProcess.__name__ = ["systems","ChangeUniverseAfterTime_SystemProcess"];
+systems_ChangeUniverseAfterTime_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_ChangeUniverseAfterTime_$SystemProcess.prototype = {
 	removeEntity: function(entity) {
 		this.updateItems.tryRemove(entity);
 	}
@@ -1320,7 +1565,7 @@ systems_ChangeUniverse_$SystemProcess.prototype = {
 			this.updateItems.tryAdd(entity,o);
 		}
 	}
-	,__class__: systems_ChangeUniverse_$SystemProcess
+	,__class__: systems_ChangeUniverseAfterTime_$SystemProcess
 };
 var systems_ImageRenderer = function() {
 	this.__process__ = new systems_ImageRenderer_$SystemProcess(this);
@@ -1578,7 +1823,13 @@ var systems_Sound = function() {
 systems_Sound.__name__ = ["systems","Sound"];
 systems_Sound.__interfaces__ = [edge_ISystem];
 systems_Sound.prototype = {
-	update: function(sound) {
+	updateAdded: function(entity,data) {
+		Main.universe.sounds.push(data.sound.howl);
+	}
+	,updateRemoved: function(entity,data) {
+		HxOverrides.remove(Main.universe.sounds,data.sound.howl);
+	}
+	,update: function(sound) {
 		if(sound.play) {
 			sound.howl.play();
 			sound.play = false;
@@ -1595,7 +1846,10 @@ systems_Sound_$SystemProcess.__name__ = ["systems","Sound_SystemProcess"];
 systems_Sound_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
 systems_Sound_$SystemProcess.prototype = {
 	removeEntity: function(entity) {
-		this.updateItems.tryRemove(entity);
+		var removed = this.updateItems.tryRemove(entity);
+		if(removed != null) {
+			this.system.updateRemoved(entity,removed);
+		}
 	}
 	,addEntity: function(entity) {
 		this.updateMatchRequirements(entity);
@@ -1614,7 +1868,7 @@ systems_Sound_$SystemProcess.prototype = {
 		return result;
 	}
 	,updateMatchRequirements: function(entity) {
-		this.updateItems.tryRemove(entity);
+		var removed = this.updateItems.tryRemove(entity);
 		var count = 1;
 		var o = { sound : null};
 		var _this = entity.map;
@@ -1627,8 +1881,12 @@ systems_Sound_$SystemProcess.prototype = {
 				break;
 			}
 		}
-		if(count == 0) {
-			this.updateItems.tryAdd(entity,o);
+		var added = count == 0 && this.updateItems.tryAdd(entity,o);
+		if(null != removed && !added) {
+			this.system.updateRemoved(entity,removed);
+		}
+		if(added && null == removed) {
+			this.system.updateAdded(entity,o);
 		}
 	}
 	,__class__: systems_Sound_$SystemProcess
@@ -1705,6 +1963,38 @@ systems_TextRenderer_$SystemProcess.prototype = {
 var thx_Either = { __ename__ : true, __constructs__ : ["Left","Right"] };
 thx_Either.Left = function(value) { var $x = ["Left",0,value]; $x.__enum__ = thx_Either; $x.toString = $estr; return $x; };
 thx_Either.Right = function(value) { var $x = ["Right",1,value]; $x.__enum__ = thx_Either; $x.toString = $estr; return $x; };
+var universes_Intro = function() {
+	Universe.call(this);
+	this.render.add(new systems_TextRenderer());
+	this.engine.create([new components_Text("Intro..."),new components_Position(0,0)]);
+};
+universes_Intro.__name__ = ["universes","Intro"];
+universes_Intro.__super__ = Universe;
+universes_Intro.prototype = $extend(Universe.prototype,{
+	__class__: universes_Intro
+});
+var universes_Splash = function() {
+	Universe.call(this);
+	this.input.bind(new vellum_KeyBind(27,vellum_KeyEventType.DOWN),Intent.Skip);
+	this.update.add(new systems_Kinematics());
+	this.update.add(new systems_KeepInBounds());
+	this.update.add(new systems_Sound());
+	this.update.add(new systems_ChangeUniverseAfterTime());
+	this.render.add(new systems_ImageRenderer());
+	this.render.add(new systems_TextRenderer());
+	this.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.3939393939393945)]);
+	this.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.3939393939393945),new components_Bounds().y(12,100)]);
+	this.engine.create([new components_Sound("blazingmammothgames.ogg",true,false)]);
+	this.engine.create([new components_ChangeUniverseAfterTime("intro",5)]);
+	this.registerIntent(Intent.Skip,function() {
+		Main.changeUniverse("intro");
+	});
+};
+universes_Splash.__name__ = ["universes","Splash"];
+universes_Splash.__super__ = Universe;
+universes_Splash.prototype = $extend(Universe.prototype,{
+	__class__: universes_Splash
+});
 var vellum_Display = function(width,height) {
 	this._width = width;
 	this._height = height;
@@ -1910,11 +2200,11 @@ vellum_DOSTerminal.prototype = $extend(vellum_RenderableTerminal.prototype,{
 		this.onKeyEvent(event,vellum_KeyEventType.PRESSED);
 	}
 	,onKeyEvent: function(event,type) {
-		if(this.windows.length < 1) {
-			return;
-		}
-		if(this.windows[this.windows.length - 1].handleKeys(event.keyCode == 59?186:event.keyCode,type,event.shiftKey,event.altKey)) {
-			event.preventDefault();
+		var keyCode = event.keyCode == 59?186:event.keyCode;
+		if(this.onInputEvent != null) {
+			if(this.onInputEvent(keyCode,type,event.shiftKey,event.altKey)) {
+				event.preventDefault();
+			}
 		}
 	}
 	,drawGlyph: function(x,y,glyph) {
@@ -2010,10 +2300,35 @@ vellum_Glyph.prototype = {
 	}
 	,__class__: vellum_Glyph
 };
-var vellum_KeyBinding = function() { };
-vellum_KeyBinding.__name__ = ["vellum","KeyBinding"];
-vellum_KeyBinding.prototype = {
-	__class__: vellum_KeyBinding
+var vellum_Input_$Intent = function() {
+	this.bindings = new haxe_ds_ObjectMap();
+};
+vellum_Input_$Intent.__name__ = ["vellum","Input_Intent"];
+vellum_Input_$Intent.prototype = {
+	bind: function(binding,input) {
+		this.bindings.set(binding,input);
+	}
+	,check: function(keyCode,type,shift,alt) {
+		var tmp = this.bindings.keys();
+		while(tmp.hasNext()) {
+			var b = tmp.next();
+			if(b.keyCode == keyCode && b.type == type && b.shift == shift && b.alt == alt) {
+				return this.bindings.h[b.__id__];
+			}
+		}
+		return null;
+	}
+	,__class__: vellum_Input_$Intent
+};
+var vellum_KeyBind = function(keyCode,type,shift,alt) {
+	this.keyCode = keyCode;
+	this.type = type;
+	this.shift = shift != null && shift;
+	this.alt = alt != null && alt;
+};
+vellum_KeyBind.__name__ = ["vellum","KeyBind"];
+vellum_KeyBind.prototype = {
+	__class__: vellum_KeyBind
 };
 var vellum_KeyEventType = { __ename__ : true, __constructs__ : ["DOWN","UP","PRESSED"] };
 vellum_KeyEventType.DOWN = ["DOWN",0];
@@ -2029,21 +2344,7 @@ var vellum_Window = function() { };
 vellum_Window.__name__ = ["vellum","Window"];
 vellum_Window.__super__ = vellum_Display;
 vellum_Window.prototype = $extend(vellum_Display.prototype,{
-	handleKeys: function(keyCode,type,shift,alt) {
-		var handled = false;
-		var _g = 0;
-		var _g1 = this.keyBindings;
-		while(_g < _g1.length) {
-			var b = _g1[_g];
-			++_g;
-			if(b.keyCode == keyCode && b.type == type && b.shift == shift && b.alt == alt) {
-				b.callback();
-				handled = true;
-			}
-		}
-		return handled;
-	}
-	,__class__: vellum_Window
+	__class__: vellum_Window
 });
 var $_, $fid = 0;
 function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id__ = $fid++; var f; if( o.hx__closures__ == null ) o.hx__closures__ = {}; else f = o.hx__closures__[m.__id__]; if( f == null ) { f = function(){ return f.method.apply(f.scope, arguments); }; f.scope = o; f.method = m; o.hx__closures__[m.__id__] = f; } return f; }
@@ -2060,13 +2361,13 @@ Bool.__ename__ = ["Bool"];
 var Class = { __name__ : ["Class"]};
 var Enum = { };
 var global = window;
-Logo.src = StringTools.replace("                         .        \r\n                         ..       \r\n             .            ..      \r\n            ..            ..      \r\n           ..            ...      \r\n           ..      .   .....      \r\n     .     ...    ..  .....       \r\n     ...    .... .... ....        \r\n     ....  ...............        \r\n      ... ...::...::..:..         \r\n      ......::######::...         \r\n       .:..::##++++##:..          \r\n       ..:::##++++++##..    .     \r\n       ...::#++####++#...  ..     \r\n        ...:#++####++#:..  ..     \r\n   .    ..::#+++##+++#:.. ...     \r\n   ...  ..::#+++##+++#::....      \r\n ###... ..::##++##++##::....  ### \r\n##+#......::%##++++##:::...   #+## \r\n#++#.....:::%%#++++#%::...    #++# \r\n#+## ..::::%%%#++++#%::..   . ##+# \r\n#+#  ...::%%%%#++++#%%:.. ...  #+# \r\n#+## ..:::%%%##++++##::.....  ##+# \r\n#++##...:::%%#++++++#:::.... ##++# \r\n#+++# ...:::##++##++##:::..  #+++# \r\n##++###..:###++####++###...###++## \r\n ##+++#####++++#%%#++++#####+++## \r\n  ##++++#+++++##%%##+++++#++++##  \r\n   ##+++++++###%:::###+++++++##   \r\n    ###+++###..:.....###+++###    \r\n      #####   ...      #####      \r\n      #####   ...      #####      ","\r","");
+Logo.src = StringTools.replace("                         .        \n                         ..       \n             .            ..      \n            ..            ..      \n           ..            ...      \n           ..      .   .....      \n     .     ...    ..  .....       \n     ...    .... .... ....        \n     ....  ...............        \n      ... ...::...::..:..         \n      ......::######::...         \n       .:..::##++++##:..          \n       ..:::##++++++##..    .     \n       ...::#++####++#...  ..     \n        ...:#++####++#:..  ..     \n   .    ..::#+++##+++#:.. ...     \n   ...  ..::#+++##+++#::....      \n ###... ..::##++##++##::....  ### \n##+#......::%##++++##:::...   #+## \n#++#.....:::%%#++++#%::...    #++# \n#+## ..::::%%%#++++#%::..   . ##+# \n#+#  ...::%%%%#++++#%%:.. ...  #+# \n#+## ..:::%%%##++++##::.....  ##+# \n#++##...:::%%#++++++#:::.... ##++# \n#+++# ...:::##++##++##:::..  #+++# \n##++###..:###++####++###...###++## \n ##+++#####++++#%%#++++#####+++## \n  ##++++#+++++##%%##+++++#++++##  \n   ##+++++++###%:::###+++++++##   \n    ###+++###..:.....###+++###    \n      #####   ...      #####      \n      #####   ...      #####      ","\r","");
 Main.universes = new haxe_ds_StringMap();
 Timing.animationFrameID = 0;
 Timing.time = 0;
 Timing.lastTime = 0;
 Timing.accumulator = 0;
-Timing.dt = 0.033333333333333333;
+Timing.dt = 0.0333333333333333329;
 Timing.alpha = 0;
 haxe_ds_ObjectMap.count = 0;
 js_Boot.__toStr = { }.toString;

@@ -11,6 +11,8 @@ import promhx.Promise;
 
 import haxe.ds.StringMap;
 import vellum.Colour;
+import vellum.KeyCode;
+import vellum.KeyEventType;
 
 class DOSTerminal extends RenderableTerminal {
 	var font:Font;
@@ -20,6 +22,8 @@ class DOSTerminal extends RenderableTerminal {
 	var imageLoaded:Bool = false;
 	var d:Deferred<Bool> = new Deferred<Bool>();
 	var fontColourCache:StringMap<CanvasElement> = new StringMap<CanvasElement>();
+	
+	public var onInputEvent:KeyCode->KeyEventType->Bool->Bool->Bool;
 
 	override public function set_handlingInput(x:Bool):Bool {
 		js.Browser.document.body.onkeydown = x ? onKeyDown : null;
@@ -107,17 +111,14 @@ class DOSTerminal extends RenderableTerminal {
 	}
 
 	function onKeyEvent(event:js.html.KeyboardEvent, type:KeyEventType) {
-		// if we don't have any windows to accept input, then don't bother!
-		if(windows.length < 1) return;
-
 		// grab the keycode
 		// firefox uses 59 for semicolon
 		var keyCode:KeyCode = event.keyCode == 59 ? KeyCode.semicolon : cast(event.keyCode);
 
-		// send the bindings to our topmost window!
-		if(windows[windows.length - 1].handleKeys(keyCode, type, event.shiftKey, event.altKey)) {
-			// if the window handles the event, stop the propagation!
-			event.preventDefault();
+		// send the event to the input handler
+		if(onInputEvent != null) {
+			if(onInputEvent(keyCode, type, event.shiftKey, event.altKey))
+				event.preventDefault();
 		}
 	}
 
