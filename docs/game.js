@@ -184,9 +184,6 @@ function $extend(from, fields) {
 	if( fields.toString !== Object.prototype.toString ) proto.toString = fields.toString;
 	return proto;
 }
-var Events = { __ename__ : true, __constructs__ : ["DebugMessage","ChangeUniverse"] };
-Events.DebugMessage = function(message) { var $x = ["DebugMessage",0,message]; $x.__enum__ = Events; $x.toString = $estr; return $x; };
-Events.ChangeUniverse = function(verse) { var $x = ["ChangeUniverse",1,verse]; $x.__enum__ = Events; $x.toString = $estr; return $x; };
 var HxOverrides = function() { };
 HxOverrides.__name__ = ["HxOverrides"];
 HxOverrides.cca = function(s,index) {
@@ -437,6 +434,9 @@ Std.__name__ = ["Std"];
 Std.string = function(s) {
 	return js_Boot.__string_rec(s,"");
 };
+var TEvent = { __ename__ : true, __constructs__ : ["DebugMessage","ChangeUniverse"] };
+TEvent.DebugMessage = function(message) { var $x = ["DebugMessage",0,message]; $x.__enum__ = TEvent; $x.toString = $estr; return $x; };
+TEvent.ChangeUniverse = function(verse) { var $x = ["ChangeUniverse",1,verse]; $x.__enum__ = TEvent; $x.toString = $estr; return $x; };
 var Timing = function() { };
 Timing.__name__ = ["Timing"];
 Timing.onRenderFrame = function(ts) {
@@ -514,24 +514,6 @@ components_Bounds.prototype = {
 	}
 	,__class__: components_Bounds
 };
-var components_ChangeUniverseAfterTime = function(universe,time) {
-	this.universe = universe;
-	this.time = time;
-};
-components_ChangeUniverseAfterTime.__name__ = ["components","ChangeUniverseAfterTime"];
-components_ChangeUniverseAfterTime.__interfaces__ = [edge_IComponent];
-components_ChangeUniverseAfterTime.prototype = {
-	__class__: components_ChangeUniverseAfterTime
-};
-var components_ChangeUniverseOnIntent = function(universe,intent) {
-	this.universe = universe;
-	this.intent = intent;
-};
-components_ChangeUniverseOnIntent.__name__ = ["components","ChangeUniverseOnIntent"];
-components_ChangeUniverseOnIntent.__interfaces__ = [edge_IComponent];
-components_ChangeUniverseOnIntent.prototype = {
-	__class__: components_ChangeUniverseOnIntent
-};
 var components_Event = function(event) {
 	this.event = event;
 };
@@ -559,8 +541,18 @@ components_Image.prototype = {
 	}
 	,__class__: components_Image
 };
-var components_MenuItem = function(index) {
+var components_IntentEvent = function(intent,event) {
+	this.intent = intent;
+	this.event = event;
+};
+components_IntentEvent.__name__ = ["components","IntentEvent"];
+components_IntentEvent.__interfaces__ = [edge_IComponent];
+components_IntentEvent.prototype = {
+	__class__: components_IntentEvent
+};
+var components_MenuItem = function(index,event) {
 	this.index = index;
+	this.event = event;
 };
 components_MenuItem.__name__ = ["components","MenuItem"];
 components_MenuItem.__interfaces__ = [edge_IComponent];
@@ -622,6 +614,15 @@ components_Text.__name__ = ["components","Text"];
 components_Text.__interfaces__ = [edge_IComponent];
 components_Text.prototype = {
 	__class__: components_Text
+};
+var components_Timer = function(time,event) {
+	this.time = time;
+	this.event = event;
+};
+components_Timer.__name__ = ["components","Timer"];
+components_Timer.__interfaces__ = [edge_IComponent];
+components_Timer.prototype = {
+	__class__: components_Timer
 };
 var components_Velocity = function(vx,vy,vz) {
 	if(vz == null) {
@@ -1376,89 +1377,29 @@ promhx_base_EventLoop.continueOnNextLoop = function() {
 var promhx_error_PromiseError = { __ename__ : true, __constructs__ : ["AlreadyResolved","DownstreamNotFullfilled"] };
 promhx_error_PromiseError.AlreadyResolved = function(message) { var $x = ["AlreadyResolved",0,message]; $x.__enum__ = promhx_error_PromiseError; $x.toString = $estr; return $x; };
 promhx_error_PromiseError.DownstreamNotFullfilled = function(message) { var $x = ["DownstreamNotFullfilled",1,message]; $x.__enum__ = promhx_error_PromiseError; $x.toString = $estr; return $x; };
-var systems_ChangeUniverseAfterTime = function() {
-	this.__process__ = new systems_ChangeUniverseAfterTime_$SystemProcess(this);
+var systems_ChangeUniverseEvent = function() {
+	this.__process__ = new systems_ChangeUniverseEvent_$SystemProcess(this);
 };
-systems_ChangeUniverseAfterTime.__name__ = ["systems","ChangeUniverseAfterTime"];
-systems_ChangeUniverseAfterTime.__interfaces__ = [edge_ISystem];
-systems_ChangeUniverseAfterTime.prototype = {
-	update: function(change) {
-		change.time -= this.timeDelta;
-		if(change.time <= 0) {
-			Main.changeUniverse(change.universe);
+systems_ChangeUniverseEvent.__name__ = ["systems","ChangeUniverseEvent"];
+systems_ChangeUniverseEvent.__interfaces__ = [edge_ISystem];
+systems_ChangeUniverseEvent.prototype = {
+	update: function(event) {
+		var _g = event.event;
+		if(_g[1] == 1) {
+			this.entity.destroy();
+			Main.changeUniverse(_g[2]);
 		}
 		return true;
 	}
-	,__class__: systems_ChangeUniverseAfterTime
+	,__class__: systems_ChangeUniverseEvent
 };
-var systems_ChangeUniverseAfterTime_$SystemProcess = function(system) {
+var systems_ChangeUniverseEvent_$SystemProcess = function(system) {
 	this.system = system;
 	this.updateItems = new edge_View();
 };
-systems_ChangeUniverseAfterTime_$SystemProcess.__name__ = ["systems","ChangeUniverseAfterTime_SystemProcess"];
-systems_ChangeUniverseAfterTime_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
-systems_ChangeUniverseAfterTime_$SystemProcess.prototype = {
-	removeEntity: function(entity) {
-		this.updateItems.tryRemove(entity);
-	}
-	,addEntity: function(entity) {
-		this.updateMatchRequirements(entity);
-	}
-	,update: function(engine,delta) {
-		this.system.timeDelta = delta;
-		var result = true;
-		var data;
-		var tmp = this.updateItems.iterator();
-		while(tmp.hasNext()) {
-			data = tmp.next().data;
-			result = this.system.update(data.change);
-			if(!result) {
-				break;
-			}
-		}
-		return result;
-	}
-	,updateMatchRequirements: function(entity) {
-		this.updateItems.tryRemove(entity);
-		var count = 1;
-		var o = { change : null};
-		var _this = entity.map;
-		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
-		while(tmp.hasNext()) {
-			var component = tmp.next();
-			if(js_Boot.__instanceof(component,components_ChangeUniverseAfterTime)) {
-				o.change = component;
-				count = 0;
-				break;
-			}
-		}
-		if(count == 0) {
-			this.updateItems.tryAdd(entity,o);
-		}
-	}
-	,__class__: systems_ChangeUniverseAfterTime_$SystemProcess
-};
-var systems_ChangeUniverseOnIntent = function() {
-	this.__process__ = new systems_ChangeUniverseOnIntent_$SystemProcess(this);
-};
-systems_ChangeUniverseOnIntent.__name__ = ["systems","ChangeUniverseOnIntent"];
-systems_ChangeUniverseOnIntent.__interfaces__ = [edge_ISystem];
-systems_ChangeUniverseOnIntent.prototype = {
-	update: function(change) {
-		if(Main.intended(change.intent)) {
-			Main.changeUniverse(change.universe);
-		}
-		return true;
-	}
-	,__class__: systems_ChangeUniverseOnIntent
-};
-var systems_ChangeUniverseOnIntent_$SystemProcess = function(system) {
-	this.system = system;
-	this.updateItems = new edge_View();
-};
-systems_ChangeUniverseOnIntent_$SystemProcess.__name__ = ["systems","ChangeUniverseOnIntent_SystemProcess"];
-systems_ChangeUniverseOnIntent_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
-systems_ChangeUniverseOnIntent_$SystemProcess.prototype = {
+systems_ChangeUniverseEvent_$SystemProcess.__name__ = ["systems","ChangeUniverseEvent_SystemProcess"];
+systems_ChangeUniverseEvent_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_ChangeUniverseEvent_$SystemProcess.prototype = {
 	removeEntity: function(entity) {
 		this.updateItems.tryRemove(entity);
 	}
@@ -1470,8 +1411,10 @@ systems_ChangeUniverseOnIntent_$SystemProcess.prototype = {
 		var data;
 		var tmp = this.updateItems.iterator();
 		while(tmp.hasNext()) {
-			data = tmp.next().data;
-			result = this.system.update(data.change);
+			var item = tmp.next();
+			this.system.entity = item.entity;
+			data = item.data;
+			result = this.system.update(data.event);
 			if(!result) {
 				break;
 			}
@@ -1481,13 +1424,13 @@ systems_ChangeUniverseOnIntent_$SystemProcess.prototype = {
 	,updateMatchRequirements: function(entity) {
 		this.updateItems.tryRemove(entity);
 		var count = 1;
-		var o = { change : null};
+		var o = { event : null};
 		var _this = entity.map;
 		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
 		while(tmp.hasNext()) {
 			var component = tmp.next();
-			if(js_Boot.__instanceof(component,components_ChangeUniverseOnIntent)) {
-				o.change = component;
+			if(js_Boot.__instanceof(component,components_Event)) {
+				o.event = component;
 				count = 0;
 				break;
 			}
@@ -1496,7 +1439,7 @@ systems_ChangeUniverseOnIntent_$SystemProcess.prototype = {
 			this.updateItems.tryAdd(entity,o);
 		}
 	}
-	,__class__: systems_ChangeUniverseOnIntent_$SystemProcess
+	,__class__: systems_ChangeUniverseEvent_$SystemProcess
 };
 var systems_DebugEvent = function() {
 	this.__process__ = new systems_DebugEvent_$SystemProcess(this);
@@ -1654,6 +1597,68 @@ systems_ImageRenderer_$SystemProcess.prototype = {
 		}
 	}
 	,__class__: systems_ImageRenderer_$SystemProcess
+};
+var systems_IntentEvent = function() {
+	this.__process__ = new systems_IntentEvent_$SystemProcess(this);
+};
+systems_IntentEvent.__name__ = ["systems","IntentEvent"];
+systems_IntentEvent.__interfaces__ = [edge_ISystem];
+systems_IntentEvent.prototype = {
+	update: function(intentEvent) {
+		if(Main.intended(intentEvent.intent)) {
+			this.entity.engine.create([new components_Event(intentEvent.event)]);
+		}
+		return true;
+	}
+	,__class__: systems_IntentEvent
+};
+var systems_IntentEvent_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_IntentEvent_$SystemProcess.__name__ = ["systems","IntentEvent_SystemProcess"];
+systems_IntentEvent_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_IntentEvent_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			this.system.entity = item.entity;
+			data = item.data;
+			result = this.system.update(data.intentEvent);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 1;
+		var o = { intentEvent : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_IntentEvent)) {
+				o.intentEvent = component;
+				count = 0;
+				break;
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_IntentEvent_$SystemProcess
 };
 var systems_KeepInBounds = function() {
 	this.__process__ = new systems_KeepInBounds_$SystemProcess(this);
@@ -1834,6 +1839,16 @@ systems_Menu.prototype = {
 			}
 		}
 	}
+	,getSelection: function(selection) {
+		var tmp = this.menuItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			if(selection == item.data.menuItem.index) {
+				return item.data;
+			}
+		}
+		return null;
+	}
 	,update: function(selector,pos) {
 		if(Main.intended(Intent.Previous) && selector.selection > 0) {
 			selector.selection--;
@@ -1842,16 +1857,11 @@ systems_Menu.prototype = {
 			selector.selection++;
 		}
 		if(Main.intended(Intent.Select)) {
-			this.entity.engine.create([new components_Event(Events.DebugMessage("selected: " + selector.selection))]);
+			this.entity.engine.create([new components_Event(this.getSelection(selector.selection).menuItem.event)]);
 		}
-		var tmp = this.menuItems.iterator();
-		while(tmp.hasNext()) {
-			var item = tmp.next();
-			if(selector.selection == item.data.menuItem.index) {
-				pos.x = item.data.pos.x + selector.positionOffsetX;
-				pos.y = item.data.pos.y + selector.positionOffsetY;
-			}
-		}
+		var selected = this.getSelection(selector.selection);
+		pos.x = selected.pos.x + selector.positionOffsetX;
+		pos.y = selected.pos.y + selector.positionOffsetY;
 		return true;
 	}
 	,__class__: systems_Menu
@@ -2118,6 +2128,73 @@ systems_TextRenderer_$SystemProcess.prototype = {
 	}
 	,__class__: systems_TextRenderer_$SystemProcess
 };
+var systems_Timer = function() {
+	this.__process__ = new systems_Timer_$SystemProcess(this);
+};
+systems_Timer.__name__ = ["systems","Timer"];
+systems_Timer.__interfaces__ = [edge_ISystem];
+systems_Timer.prototype = {
+	update: function(timer) {
+		timer.time -= this.timeDelta;
+		if(timer.time <= 0) {
+			if(timer.event != null) {
+				this.entity.engine.create([new components_Event(timer.event)]);
+			}
+			this.entity.destroy();
+		}
+		return true;
+	}
+	,__class__: systems_Timer
+};
+var systems_Timer_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_Timer_$SystemProcess.__name__ = ["systems","Timer_SystemProcess"];
+systems_Timer_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_Timer_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		this.system.timeDelta = delta;
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			this.system.entity = item.entity;
+			data = item.data;
+			result = this.system.update(data.timer);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 1;
+		var o = { timer : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Timer)) {
+				o.timer = component;
+				count = 0;
+				break;
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_Timer_$SystemProcess
+};
 var thx_Either = { __ename__ : true, __constructs__ : ["Left","Right"] };
 thx_Either.Left = function(value) { var $x = ["Left",0,value]; $x.__enum__ = thx_Either; $x.toString = $estr; return $x; };
 thx_Either.Right = function(value) { var $x = ["Right",1,value]; $x.__enum__ = thx_Either; $x.toString = $estr; return $x; };
@@ -2125,11 +2202,12 @@ var universes_Intro = function() {
 	Universe.call(this);
 	this.input.bind(new vellum_KeyBind(27,vellum_KeyEventType.DOWN),Intent.Skip);
 	this.input.bind(new vellum_KeyBind(13,vellum_KeyEventType.DOWN),Intent.Skip);
-	this.update.add(new systems_ChangeUniverseOnIntent());
+	this.update.add(new systems_IntentEvent());
+	this.update.add(new systems_ChangeUniverseEvent());
 	this.render.add(new systems_TextRenderer());
 	this.engine.create([new components_Text("No intro yet!"),new components_Position(0,0)]);
 	this.engine.create([new components_Text("Press [ESC] to continue..."),new components_Position(Main.term.get_width() - 26,Main.term.get_height() - 1)]);
-	this.engine.create([new components_ChangeUniverseOnIntent("MainMenu",Intent.Skip)]);
+	this.engine.create([new components_IntentEvent(Intent.Skip,TEvent.ChangeUniverse("MainMenu"))]);
 };
 universes_Intro.__name__ = ["universes","Intro"];
 universes_Intro.__super__ = Universe;
@@ -2152,10 +2230,10 @@ var universes_MainMenu = function() {
 	this.render.add(new systems_TextRenderer());
 	this.engine.create([new components_Text("== Main Menu ==","rgb(255, 192, 0)"),new components_Position((Main.term.get_width() - 15) / 2,1)]);
 	this.engine.create([new components_Text(">","rgb(255, 192, 0)"),new components_MenuSelector(0).setOffset(-2,0),new components_Position(0,0)]);
-	this.engine.create([new components_Text("Play"),new components_Position(3,3),new components_MenuItem(0)]);
-	this.engine.create([new components_Text("Options"),new components_Position(3,4),new components_MenuItem(1)]);
-	this.engine.create([new components_Text("Credits"),new components_Position(3,5),new components_MenuItem(2)]);
-	this.engine.create([new components_Text("Quit"),new components_Position(Main.term.get_width() - 6,Main.term.get_height() - 2),new components_MenuItem(3)]);
+	this.engine.create([new components_Text("Start"),new components_Position(3,3),new components_MenuItem(0,TEvent.DebugMessage("TODO: handle 'Start' action!"))]);
+	this.engine.create([new components_Text("Options"),new components_Position(3,4),new components_MenuItem(1,TEvent.DebugMessage("TODO: handle 'Options' action!"))]);
+	this.engine.create([new components_Text("Credits"),new components_Position(3,5),new components_MenuItem(2,TEvent.DebugMessage("TODO: handle 'Credits' action!"))]);
+	this.engine.create([new components_Text("Quit"),new components_Position(Main.term.get_width() - 6,Main.term.get_height() - 2),new components_MenuItem(3,TEvent.DebugMessage("TODO: handle 'Quit' action!"))]);
 };
 universes_MainMenu.__name__ = ["universes","MainMenu"];
 universes_MainMenu.__super__ = Universe;
@@ -2168,15 +2246,16 @@ var universes_Splash = function() {
 	this.update.add(new systems_Kinematics());
 	this.update.add(new systems_KeepInBounds());
 	this.update.add(new systems_Sound(this));
-	this.update.add(new systems_ChangeUniverseAfterTime());
-	this.update.add(new systems_ChangeUniverseOnIntent());
+	this.update.add(new systems_IntentEvent());
+	this.update.add(new systems_Timer());
+	this.update.add(new systems_ChangeUniverseEvent());
 	this.render.add(new systems_ImageRenderer());
 	this.render.add(new systems_TextRenderer());
 	this.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.393939393939394)]);
 	this.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.393939393939394),new components_Bounds().y(12,100)]);
 	this.engine.create([new components_Sound("blazingmammothgames.ogg",true,false)]);
-	this.engine.create([new components_ChangeUniverseAfterTime("Intro",5)]);
-	this.engine.create([new components_ChangeUniverseOnIntent("Intro",Intent.Skip)]);
+	this.engine.create([new components_Timer(5,TEvent.ChangeUniverse("Intro"))]);
+	this.engine.create([new components_IntentEvent(Intent.Skip,TEvent.ChangeUniverse("Intro"))]);
 };
 universes_Splash.__name__ = ["universes","Splash"];
 universes_Splash.__super__ = Universe;

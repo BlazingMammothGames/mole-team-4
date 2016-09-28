@@ -1,6 +1,6 @@
 package;
 
-enum Events {
+enum TEvent {
 	DebugMessage(message:String);
 	ChangeUniverse(verse:String);
 }

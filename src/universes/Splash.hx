@@ -15,8 +15,9 @@ class Splash extends Universe {
         update.add(new systems.Kinematics());
         update.add(new systems.KeepInBounds());
         update.add(new systems.Sound(this));
-        update.add(new systems.ChangeUniverseAfterTime());
-        update.add(new systems.ChangeUniverseOnIntent());
+        update.add(new systems.IntentEvent());
+        update.add(new systems.Timer());
+        update.add(new systems.ChangeUniverseEvent());
 
         render.add(new systems.ImageRenderer());
         render.add(new systems.TextRenderer());
@@ -39,7 +40,7 @@ class Splash extends Universe {
                 .y(12, 100),
         ]);
         engine.create([new components.Sound("blazingmammothgames.ogg", true, false)]);
-        engine.create([new components.ChangeUniverseAfterTime(Intro.name, 5)]);
-        engine.create([new components.ChangeUniverseOnIntent(Intro.name, Intent.Skip)]);
+        engine.create([new components.Timer(5, TEvent.ChangeUniverse(Intro.name))]);
+        engine.create([new components.IntentEvent(Intent.Skip, TEvent.ChangeUniverse(Intro.name))]);
     }
 }

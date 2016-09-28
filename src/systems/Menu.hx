@@ -25,6 +25,14 @@ class Menu implements ISystem {
 		}
 	}
 
+	private function getSelection(selection:Int):{menuItem:MenuItem, pos:Position} {
+		for(item in menuItems) {
+			if(selection == item.data.menuItem.index)
+				return item.data;
+		}
+		return null;
+	}
+
 	public function update(selector:MenuSelector, pos:Position) {
 		// handle selector movement
 		if(Main.intended(Intent.Previous) && selector.selection > 0)
@@ -34,15 +42,12 @@ class Menu implements ISystem {
 
 		// handle menu selection
 		if(Main.intended(Intent.Select)) {
-			entity.engine.create([new components.Event(Events.DebugMessage("selected: " + selector.selection))]);
+			entity.engine.create([new components.Event(getSelection(selector.selection).menuItem.event)]);
 		}
 
 		// re-position the selector
-		for(item in menuItems) {
-			if(selector.selection == item.data.menuItem.index) {
-				pos.x = item.data.pos.x + selector.positionOffsetX;
-				pos.y = item.data.pos.y + selector.positionOffsetY;
-			}
-		}
+		var selected:{menuItem:MenuItem, pos:Position} = getSelection(selector.selection);
+		pos.x = selected.pos.x + selector.positionOffsetX;
+		pos.y = selected.pos.y + selector.positionOffsetY;
 	}
 }

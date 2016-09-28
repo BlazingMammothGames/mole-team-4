@@ -12,7 +12,8 @@ class Intro extends Universe {
         input.bind(new KeyBind(KeyCode.escape, KeyEventType.DOWN), Intent.Skip);
         input.bind(new KeyBind(KeyCode.enter, KeyEventType.DOWN), Intent.Skip);
 
-        update.add(new systems.ChangeUniverseOnIntent());
+        update.add(new systems.IntentEvent());
+        update.add(new systems.ChangeUniverseEvent());
         render.add(new systems.TextRenderer());
 
         engine.create([
@@ -23,6 +24,6 @@ class Intro extends Universe {
             new components.Text("Press [ESC] to continue..."),
             new components.Position(Main.term.width - 26, Main.term.height - 1)
         ]);
-        engine.create([new components.ChangeUniverseOnIntent(MainMenu.name, Intent.Skip)]);
+        engine.create([new components.IntentEvent(Intent.Skip, TEvent.ChangeUniverse(MainMenu.name))]);
     }
 }

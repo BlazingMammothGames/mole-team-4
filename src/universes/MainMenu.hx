@@ -37,27 +37,27 @@ class MainMenu extends Universe {
         ]);
 
         engine.create([
-        	new components.Text("Play"),
+        	new components.Text("Start"),
         	new components.Position(3, 3),
-        	new components.MenuItem(0)
+        	new components.MenuItem(0, TEvent.DebugMessage("TODO: handle 'Start' action!"))
         ]);
 
         engine.create([
         	new components.Text("Options"),
         	new components.Position(3, 4),
-        	new components.MenuItem(1)
+        	new components.MenuItem(1, TEvent.DebugMessage("TODO: handle 'Options' action!"))
         ]);
 
         engine.create([
         	new components.Text("Credits"),
         	new components.Position(3, 5),
-        	new components.MenuItem(2)
+        	new components.MenuItem(2, TEvent.DebugMessage("TODO: handle 'Credits' action!"))
         ]);
 
         engine.create([
         	new components.Text("Quit"),
         	new components.Position(Main.term.width - 6, Main.term.height - 2),
-        	new components.MenuItem(3)
+        	new components.MenuItem(3, TEvent.DebugMessage("TODO: handle 'Quit' action!"))
         ]);
     }
 }
