@@ -14,7 +14,7 @@ class Play extends Universe {
         input.bind(new KeyBind(KeyCode.down, KeyEventType.DOWN), Intent.Down);
         input.bind(new KeyBind(KeyCode.left, KeyEventType.DOWN), Intent.Left);
 
-        update.add(new systems.TileMapGenerator());
+        update.add(new systems.CellularTileMapGenerator());
         update.add(new systems.PlayerMovement());
         update.add(new systems.IntentEvent());
         update.add(new systems.ChangeUniverseEvent());
@@ -22,7 +22,7 @@ class Play extends Universe {
 
         engine.create([
             new components.Position(0, 0),
-            new components.TileMapGeneration(60, 25)
+            new components.CellularTileMapGenerator(60, 60, 0.5)
         ]);
         engine.create([
             new components.Position(0, 0),

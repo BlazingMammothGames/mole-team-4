@@ -11,8 +11,8 @@ import vellum.Glyph;
 class Renderer implements ISystem {
 	var unknownGlyph:Glyph = new Glyph("?".charCodeAt(0), Colour.WHITE, Colour.DARKPURPLE);
 	var clearGlyph:Glyph = new Glyph(" ".charCodeAt(0), Colour.BLACK, Colour.BLACK);
-	var floorGlyph:Glyph = new Glyph(" ".charCodeAt(0), Colour.WHITE, Colour.DARKBROWN);
-	var wallGlyph:Glyph = new Glyph("#".charCodeAt(0), Colour.BLACK, Colour.DARKBROWN);
+	var floorGlyph:Glyph = new Glyph(".".charCodeAt(0), Colour.DARKGREY, Colour.BLACK);
+	var wallGlyph:Glyph = new Glyph("#".charCodeAt(0), Colour.GREY, Colour.BLACK);
 	var doorGlyph:Glyph = new Glyph("H".charCodeAt(0), Colour.LIGHTBROWN, Colour.DARKBROWN);
 
 	var tileMaps:View<{pos:Position, tiles:TileMap}>;

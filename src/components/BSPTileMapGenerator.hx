@@ -3,7 +3,7 @@ package components;
 import edge.IComponent;
 import haxe.ds.Vector;
 
-class TileMapGeneration implements IComponent {
+class BSPTileMapGenerator implements IComponent {
 	public var width:Int;
 	public var height:Int;
 

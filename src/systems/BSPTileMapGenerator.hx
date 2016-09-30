@@ -1,12 +1,11 @@
 package systems;
 
 import components.TileMap;
-import components.TileMapGeneration;
 import edge.ISystem;
 import edge.View;
 import edge.Entity;
 
-class Rect {
+private class Rect {
 	public var x:Int = 0;
 	public var y:Int = 0;
 	public var w:Int = 0;
@@ -30,7 +29,7 @@ class Rect {
 	}
 }
 
-class BSP {
+private class BSP {
 	public var parent:BSP = null;
 	public var childA:BSP = null;
 	public var childB:BSP = null;
@@ -174,7 +173,7 @@ class BSP {
 	}
 }
 
-class TileMapGenerator implements ISystem {
+class BSPTileMapGenerator implements ISystem {
 	var entity:Entity;
 
 	private function renderBSP(node:BSP, tileMap:TileMap):Void {
@@ -203,7 +202,7 @@ class TileMapGenerator implements ISystem {
 		}
 	}
 
-	public function update(generator:TileMapGeneration) {
+	public function update(generator:components.BSPTileMapGenerator) {
 		var tileMap:TileMap = new TileMap(generator.width, generator.height);
 
 		// generate our BSP

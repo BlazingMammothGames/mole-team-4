@@ -509,7 +509,7 @@ Std.random = function(x) {
 var TEvent = { __ename__ : true, __constructs__ : ["DebugMessage","ChangeUniverse"] };
 TEvent.DebugMessage = function(message) { var $x = ["DebugMessage",0,message]; $x.__enum__ = TEvent; $x.toString = $estr; return $x; };
 TEvent.ChangeUniverse = function(verse) { var $x = ["ChangeUniverse",1,verse]; $x.__enum__ = TEvent; $x.toString = $estr; return $x; };
-var TTile = { __ename__ : true, __constructs__ : ["Floor","Wall","Door"] };
+var TTile = { __ename__ : true, __constructs__ : ["Floor","Wall","Door","FloodFill"] };
 TTile.Floor = ["Floor",0];
 TTile.Floor.toString = $estr;
 TTile.Floor.__enum__ = TTile;
@@ -519,6 +519,9 @@ TTile.Wall.__enum__ = TTile;
 TTile.Door = ["Door",2];
 TTile.Door.toString = $estr;
 TTile.Door.__enum__ = TTile;
+TTile.FloodFill = ["FloodFill",3];
+TTile.FloodFill.toString = $estr;
+TTile.FloodFill.__enum__ = TTile;
 var Timing = function() { };
 Timing.__name__ = ["Timing"];
 Timing.onRenderFrame = function(ts) {
@@ -606,6 +609,16 @@ components_Camera.__name__ = ["components","Camera"];
 components_Camera.__interfaces__ = [edge_IComponent];
 components_Camera.prototype = {
 	__class__: components_Camera
+};
+var components_CellularTileMapGenerator = function(width,height,initialWallProbability) {
+	this.width = width;
+	this.height = height;
+	this.initialWallProbability = initialWallProbability;
+};
+components_CellularTileMapGenerator.__name__ = ["components","CellularTileMapGenerator"];
+components_CellularTileMapGenerator.__interfaces__ = [edge_IComponent];
+components_CellularTileMapGenerator.prototype = {
+	__class__: components_CellularTileMapGenerator
 };
 var components_Event = function(event) {
 	this.event = event;
@@ -737,15 +750,6 @@ components_TileMap.prototype = {
 		return this;
 	}
 	,__class__: components_TileMap
-};
-var components_TileMapGeneration = function(width,height) {
-	this.width = width;
-	this.height = height;
-};
-components_TileMapGeneration.__name__ = ["components","TileMapGeneration"];
-components_TileMapGeneration.__interfaces__ = [edge_IComponent];
-components_TileMapGeneration.prototype = {
-	__class__: components_TileMapGeneration
 };
 var components_Timer = function(time,event) {
 	this.time = time;
@@ -1516,6 +1520,248 @@ promhx_base_EventLoop.continueOnNextLoop = function() {
 var promhx_error_PromiseError = { __ename__ : true, __constructs__ : ["AlreadyResolved","DownstreamNotFullfilled"] };
 promhx_error_PromiseError.AlreadyResolved = function(message) { var $x = ["AlreadyResolved",0,message]; $x.__enum__ = promhx_error_PromiseError; $x.toString = $estr; return $x; };
 promhx_error_PromiseError.DownstreamNotFullfilled = function(message) { var $x = ["DownstreamNotFullfilled",1,message]; $x.__enum__ = promhx_error_PromiseError; $x.toString = $estr; return $x; };
+var systems_CellularTileMapGenerator = function() {
+	this.__process__ = new systems_CellularTileMapGenerator_$SystemProcess(this);
+};
+systems_CellularTileMapGenerator.__name__ = ["systems","CellularTileMapGenerator"];
+systems_CellularTileMapGenerator.__interfaces__ = [edge_ISystem];
+systems_CellularTileMapGenerator.prototype = {
+	clamp: function(x,a,b) {
+		if(x < a) {
+			return a;
+		} else if(x > b) {
+			return b;
+		} else {
+			return x;
+		}
+	}
+	,countNeighbouringWalls: function(map,x,y,distance) {
+		var xStart = this.clamp(x - distance,0,map.width - 1);
+		var xEnd = this.clamp(x + distance,0,map.width - 1);
+		var yStart = this.clamp(y - distance,0,map.height - 1);
+		var yEnd = this.clamp(y + distance,0,map.height - 1);
+		var count = 0;
+		var _g1 = yStart;
+		var _g = yEnd + 1;
+		while(_g1 < _g) {
+			var j = _g1++;
+			var _g3 = xStart;
+			var _g2 = xEnd + 1;
+			while(_g3 < _g2) if(map.map[j][_g3++] == TTile.Floor) {
+				++count;
+			}
+		}
+		return count;
+	}
+	,floodFill: function(map,x,y) {
+		if(map.map[y][x] == TTile.FloodFill) {
+			return 0;
+		}
+		if(map.map[y][x] != TTile.Floor) {
+			return 0;
+		}
+		map.set(x,y,TTile.FloodFill);
+		var numChanged = 1;
+		if(x > 0) {
+			numChanged = 1 + this.floodFill(map,x - 1,y);
+		}
+		if(x < map.width - 1) {
+			numChanged += this.floodFill(map,x + 1,y);
+		}
+		if(y > 0) {
+			numChanged += this.floodFill(map,x,y - 1);
+		}
+		if(y < map.height - 1) {
+			numChanged += this.floodFill(map,x,y + 1);
+		}
+		return numChanged;
+	}
+	,update: function(generator) {
+		var oldMap = new components_TileMap(generator.width,generator.height);
+		var newMap = new components_TileMap(generator.width,generator.height);
+		var _g1 = 0;
+		var _g = generator.height;
+		while(_g1 < _g) {
+			var y = _g1++;
+			var _g3 = 0;
+			var _g2 = generator.width;
+			while(_g3 < _g2) oldMap.set(_g3++,y,Math.random() <= generator.initialWallProbability?TTile.Floor:TTile.Wall);
+		}
+		if(Std.random(2) == 0) {
+			var midY = generator.height / 2 | 0;
+			var _g11 = midY - 1;
+			var _g4 = midY + 2;
+			while(_g11 < _g4) {
+				var y1 = _g11++;
+				var _g31 = 0;
+				var _g21 = generator.width;
+				while(_g31 < _g21) oldMap.set(_g31++,y1,TTile.Floor);
+			}
+		} else {
+			var midX = generator.width / 2 | 0;
+			var _g12 = midX - 1;
+			var _g5 = midX + 2;
+			while(_g12 < _g5) {
+				var x = _g12++;
+				var _g32 = 0;
+				var _g22 = generator.height;
+				while(_g32 < _g22) oldMap.set(x,_g32++,TTile.Floor);
+			}
+		}
+		var _g13 = 0;
+		var _g6 = generator.width;
+		while(_g13 < _g6) {
+			var x1 = _g13++;
+			oldMap.set(x1,0,TTile.Wall);
+			oldMap.set(x1,generator.height - 1,TTile.Wall);
+		}
+		var _g14 = 0;
+		var _g7 = generator.height;
+		while(_g14 < _g7) {
+			var y2 = _g14++;
+			oldMap.set(0,y2,TTile.Wall);
+			oldMap.set(generator.width - 1,y2,TTile.Wall);
+		}
+		var _g8 = 0;
+		while(_g8 < 4) {
+			var i = _g8++;
+			var _g23 = 1;
+			var _g15 = generator.height - 1;
+			while(_g23 < _g15) {
+				var y3 = _g23++;
+				var _g41 = 1;
+				var _g33 = generator.width - 1;
+				while(_g41 < _g33) {
+					var x2 = _g41++;
+					var r1Count = this.countNeighbouringWalls(oldMap,x2,y3,1);
+					var r2Count = this.countNeighbouringWalls(oldMap,x2,y3,2);
+					newMap.set(x2,y3,r1Count >= 5 || r2Count <= 2?TTile.Floor:TTile.Wall);
+				}
+			}
+			oldMap = newMap;
+			newMap = new components_TileMap(generator.width,generator.height);
+		}
+		var _g9 = 0;
+		while(_g9 < 3) {
+			var i1 = _g9++;
+			var _g24 = 1;
+			var _g16 = generator.height - 1;
+			while(_g24 < _g16) {
+				var y4 = _g24++;
+				var _g42 = 1;
+				var _g34 = generator.width - 1;
+				while(_g42 < _g34) {
+					var x3 = _g42++;
+					newMap.set(x3,y4,this.countNeighbouringWalls(oldMap,x3,y4,1) >= 5?TTile.Floor:TTile.Wall);
+				}
+			}
+			oldMap = newMap;
+			newMap = new components_TileMap(generator.width,generator.height);
+		}
+		var tries = 0;
+		var bestTry = 0;
+		var bestFloorSize = 0;
+		var results = new Array(5);
+		var floorSize = 0;
+		while(true) {
+			var ffX;
+			var ffY;
+			while(true) {
+				ffX = Std.random(generator.width);
+				ffY = Std.random(generator.height);
+				if(!(oldMap.map[ffY][ffX] != TTile.Floor)) {
+					break;
+				}
+			}
+			results[tries] = new components_TileMap(generator.width,generator.height);
+			var _g17 = 0;
+			var _g10 = generator.height;
+			while(_g17 < _g10) {
+				var y5 = _g17++;
+				var _g35 = 0;
+				var _g25 = generator.width;
+				while(_g35 < _g25) {
+					var x4 = _g35++;
+					results[tries].set(x4,y5,oldMap.map[y5][x4]);
+				}
+			}
+			floorSize = this.floodFill(results[tries],ffX,ffY);
+			if(floorSize > bestFloorSize) {
+				bestFloorSize = floorSize;
+				bestTry = tries;
+			}
+			++tries;
+			if(!(tries < 5 && floorSize / (generator.width * generator.height) < 0.4)) {
+				break;
+			}
+		}
+		console.log("generated with " + tries + " tries (best = " + bestTry + "), getting " + Math.round(100 * bestFloorSize / (generator.width * generator.height)) + "% coverage");
+		var tileMap = new components_TileMap(generator.width,generator.height);
+		var _g18 = 0;
+		var _g19 = generator.height;
+		while(_g18 < _g19) {
+			var y6 = _g18++;
+			var _g36 = 0;
+			var _g26 = generator.width;
+			while(_g36 < _g26) {
+				var x5 = _g36++;
+				tileMap.set(x5,y6,results[bestTry].map[y6][x5][1] == 3?TTile.Floor:TTile.Wall);
+			}
+		}
+		this.entity.remove(generator);
+		this.entity.add(tileMap);
+		return true;
+	}
+	,__class__: systems_CellularTileMapGenerator
+};
+var systems_CellularTileMapGenerator_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_CellularTileMapGenerator_$SystemProcess.__name__ = ["systems","CellularTileMapGenerator_SystemProcess"];
+systems_CellularTileMapGenerator_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_CellularTileMapGenerator_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			this.system.entity = item.entity;
+			data = item.data;
+			result = this.system.update(data.generator);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 1;
+		var o = { generator : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_CellularTileMapGenerator)) {
+				o.generator = component;
+				count = 0;
+				break;
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_CellularTileMapGenerator_$SystemProcess
+};
 var systems_ChangeUniverseEvent = function() {
 	this.__process__ = new systems_ChangeUniverseEvent_$SystemProcess(this);
 };
@@ -2185,9 +2431,10 @@ systems_PlayerMovement_$SystemProcess.prototype = {
 };
 var systems_Renderer = function() {
 	this.doorGlyph = new vellum_Glyph(HxOverrides.cca("H",0),"rgb(190, 150, 100)","rgb(100, 64, 32)");
-	this.wallGlyph = new vellum_Glyph(HxOverrides.cca("#",0),"#000","rgb(100, 64, 32)");
-	this.floorGlyph = new vellum_Glyph(HxOverrides.cca(" ",0),"#fff","rgb(100, 64, 32)");
+	this.wallGlyph = new vellum_Glyph(HxOverrides.cca("#",0),"rgb(128, 128, 128)","#000");
+	this.floorGlyph = new vellum_Glyph(HxOverrides.cca(".",0),"rgb(64, 64, 64)","#000");
 	this.clearGlyph = new vellum_Glyph(HxOverrides.cca(" ",0),"#000","#000");
+	this.unknownGlyph = new vellum_Glyph(HxOverrides.cca("?",0),"#fff","rgb(64, 0, 128)");
 	this.__process__ = new systems_Renderer_$SystemProcess(this);
 };
 systems_Renderer.__name__ = ["systems","Renderer"];
@@ -2225,6 +2472,8 @@ systems_Renderer.prototype = {
 					case 2:
 						tmp3 = this.doorGlyph;
 						break;
+					default:
+						tmp3 = this.unknownGlyph;
 					}
 					Main.term.drawGlyph(tmp1,tmp2,tmp3);
 				}
@@ -2487,201 +2736,6 @@ systems_TextRenderer_$SystemProcess.prototype = {
 	}
 	,__class__: systems_TextRenderer_$SystemProcess
 };
-var systems_Rect = function(x,y,w,h) {
-	this.h = 0;
-	this.w = 0;
-	this.y = 0;
-	this.x = 0;
-	this.x = x;
-	this.y = y;
-	this.w = w;
-	this.h = h;
-};
-systems_Rect.__name__ = ["systems","Rect"];
-systems_Rect.prototype = {
-	get_xmax: function() {
-		return this.x + this.w;
-	}
-	,get_ymax: function() {
-		return this.y + this.h;
-	}
-	,__class__: systems_Rect
-};
-var systems_BSP = function(x,y,w,h,parent) {
-	this.sibling = null;
-	this.childB = null;
-	this.childA = null;
-	this.parent = null;
-	this.bounds = new systems_Rect(x,y,w,h);
-	this.parent = parent;
-};
-systems_BSP.__name__ = ["systems","BSP"];
-systems_BSP.prototype = {
-	generate: function(minWidth,minHeight,maxAspect,counter) {
-		if(counter <= 0) {
-			return;
-		}
-		var x = this.bounds.x;
-		var y = this.bounds.y;
-		var w = this.bounds.w;
-		var h = this.bounds.h;
-		var ratio = w / h;
-		if((ratio > maxAspect?0:ratio < 1 / maxAspect?1:Std.random(2)) == 0) {
-			var aWidth = Std.random(w - 2 * minWidth) + minWidth;
-			var bWidth = w - aWidth;
-			if(aWidth < minWidth || bWidth < minWidth) {
-				return;
-			}
-			this.childA = new systems_BSP(x,y,aWidth,h,this);
-			this.childB = new systems_BSP(x + aWidth,y,bWidth,h,this);
-		} else {
-			var aHeight = Std.random(h - 2 * minHeight) + minHeight;
-			var bHeight = h - aHeight;
-			if(aHeight < minHeight || bHeight < minHeight) {
-				return;
-			}
-			this.childA = new systems_BSP(x,y,w,aHeight,this);
-			this.childB = new systems_BSP(x,y + aHeight,w,bHeight,this);
-		}
-		this.childA.sibling = this.childB;
-		this.childB.sibling = this.childA;
-		this.childA.generate(minWidth,minHeight,maxAspect,counter - 1);
-		this.childB.generate(minWidth,minHeight,maxAspect,counter - 1);
-	}
-	,buildRooms: function(minWidth,minHeight) {
-		if(this.childA != null) {
-			this.childA.buildRooms(minWidth,minHeight);
-			this.childB.buildRooms(minWidth,minHeight);
-			return;
-		}
-		var w = Std.random(this.bounds.w - minWidth) + minWidth;
-		var h = Std.random(this.bounds.h - minHeight) + minHeight;
-		this.room = new systems_Rect(Std.random(this.bounds.w - w) + this.bounds.x,Std.random(this.bounds.h - h) + this.bounds.y,w,h);
-	}
-	,buildCorridors: function() {
-		if(this.childA == null) {
-			if(this.room == null || this.sibling.room == null) {
-				return;
-			}
-			var xMin = this.sibling.room.x > this.room.x?this.sibling.room.x:this.room.x;
-			var xMax = this.sibling.room.get_xmax() < this.room.get_xmax()?this.sibling.room.get_xmax():this.room.get_xmax();
-			var yMin = this.sibling.room.y > this.room.y?this.sibling.room.y:this.room.y;
-			var yMax = this.sibling.room.get_ymax() < this.room.get_ymax()?this.sibling.room.get_ymax():this.room.get_ymax();
-			if(xMax - xMin > 0) {
-				var x = Std.random(xMax - xMin) + xMin;
-				var y = this.sibling.room.y < this.room.y?this.sibling.room.get_ymax():this.room.get_ymax();
-				var y1 = this.sibling.room.y < this.room.y?this.room.y:this.sibling.room.y;
-				console.log("Building vertical corridor at x=" + x + ", from y=" + y + "--" + y1);
-				this.parent.corridor = new systems_Rect(x,y,1,y1 - y);
-			} else if(yMax - yMin > 0) {
-				var y2 = Std.random(yMax - yMin) + yMin;
-				var x1 = this.sibling.room.x < this.room.x?this.sibling.room.get_xmax():this.room.get_xmax();
-				var x11 = this.sibling.room.x < this.room.x?this.room.x:this.sibling.room.x;
-				console.log("horizontal vertical corridor at y=" + y2 + ", from x=" + x1 + "--" + x11);
-				this.parent.corridor = new systems_Rect(x1,y2,x11 - x1,1);
-			} else {
-				console.log("unhandled corridor matching!");
-			}
-		} else {
-			this.childA.buildCorridors();
-			this.childB.buildCorridors();
-		}
-	}
-	,__class__: systems_BSP
-};
-var systems_TileMapGenerator = function() {
-	this.__process__ = new systems_TileMapGenerator_$SystemProcess(this);
-};
-systems_TileMapGenerator.__name__ = ["systems","TileMapGenerator"];
-systems_TileMapGenerator.__interfaces__ = [edge_ISystem];
-systems_TileMapGenerator.prototype = {
-	renderBSP: function(node,tileMap) {
-		if(node.childA != null) {
-			this.renderBSP(node.childA,tileMap);
-			this.renderBSP(node.childB,tileMap);
-		}
-		if(node.room != null) {
-			var _g1 = node.room.y;
-			var _g = node.room.y + node.room.h;
-			while(_g1 < _g) {
-				var y = _g1++;
-				var _g3 = node.room.x;
-				var _g2 = node.room.x + node.room.w;
-				while(_g3 < _g2) tileMap.set(_g3++,y,TTile.Floor);
-			}
-		}
-		if(node.corridor != null) {
-			var _g11 = node.corridor.y;
-			var _g4 = node.corridor.y + node.corridor.h;
-			while(_g11 < _g4) {
-				var y1 = _g11++;
-				var _g31 = node.corridor.x;
-				var _g21 = node.corridor.x + node.corridor.w;
-				while(_g31 < _g21) tileMap.set(_g31++,y1,TTile.Door);
-			}
-		}
-	}
-	,update: function(generator) {
-		var tileMap = new components_TileMap(generator.width,generator.height);
-		var root = new systems_BSP(0,0,generator.width,generator.height,null);
-		root.generate(7,7,3,30);
-		root.buildRooms(3,3);
-		root.buildCorridors();
-		this.renderBSP(root,tileMap);
-		this.entity.remove(generator);
-		this.entity.add(tileMap);
-		return true;
-	}
-	,__class__: systems_TileMapGenerator
-};
-var systems_TileMapGenerator_$SystemProcess = function(system) {
-	this.system = system;
-	this.updateItems = new edge_View();
-};
-systems_TileMapGenerator_$SystemProcess.__name__ = ["systems","TileMapGenerator_SystemProcess"];
-systems_TileMapGenerator_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
-systems_TileMapGenerator_$SystemProcess.prototype = {
-	removeEntity: function(entity) {
-		this.updateItems.tryRemove(entity);
-	}
-	,addEntity: function(entity) {
-		this.updateMatchRequirements(entity);
-	}
-	,update: function(engine,delta) {
-		var result = true;
-		var data;
-		var tmp = this.updateItems.iterator();
-		while(tmp.hasNext()) {
-			var item = tmp.next();
-			this.system.entity = item.entity;
-			data = item.data;
-			result = this.system.update(data.generator);
-			if(!result) {
-				break;
-			}
-		}
-		return result;
-	}
-	,updateMatchRequirements: function(entity) {
-		this.updateItems.tryRemove(entity);
-		var count = 1;
-		var o = { generator : null};
-		var _this = entity.map;
-		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
-		while(tmp.hasNext()) {
-			var component = tmp.next();
-			if(js_Boot.__instanceof(component,components_TileMapGeneration)) {
-				o.generator = component;
-				count = 0;
-				break;
-			}
-		}
-		if(count == 0) {
-			this.updateItems.tryAdd(entity,o);
-		}
-	}
-	,__class__: systems_TileMapGenerator_$SystemProcess
-};
 var systems_Timer = function() {
 	this.__process__ = new systems_Timer_$SystemProcess(this);
 };
@@ -2801,12 +2855,12 @@ var universes_Play = function() {
 	this.input.bind(new vellum_KeyBind(39,vellum_KeyEventType.DOWN),Intent.Right);
 	this.input.bind(new vellum_KeyBind(40,vellum_KeyEventType.DOWN),Intent.Down);
 	this.input.bind(new vellum_KeyBind(37,vellum_KeyEventType.DOWN),Intent.Left);
-	this.update.add(new systems_TileMapGenerator());
+	this.update.add(new systems_CellularTileMapGenerator());
 	this.update.add(new systems_PlayerMovement());
 	this.update.add(new systems_IntentEvent());
 	this.update.add(new systems_ChangeUniverseEvent());
 	this.render.add(new systems_Renderer());
-	this.engine.create([new components_Position(0,0),new components_TileMapGeneration(60,25)]);
+	this.engine.create([new components_Position(0,0),new components_CellularTileMapGenerator(60,60,0.5)]);
 	this.engine.create([new components_Position(0,0),new components_Camera(0,0,60,25),new components_PlayerControl()]);
 };
 universes_Play.__name__ = ["universes","Play"];
