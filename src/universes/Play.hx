@@ -22,7 +22,7 @@ class Play extends Universe {
 
         engine.create([
             new components.Position(0, 0),
-            new components.CellularTileMapGenerator(60, 60, 0.5)
+            new components.CellularTileMapGenerator(120, 60, 0.5, 5, 0.4)
         ]);
         engine.create([
             new components.Position(0, 0),

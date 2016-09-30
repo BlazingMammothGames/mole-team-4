@@ -108,7 +108,7 @@ class CellularTileMapGenerator implements ISystem {
 		var tries:Int = 0;
 		var bestTry:Int = 0;
 		var bestFloorSize:Int = 0;
-		var results:Vector<TileMap> = new Vector<TileMap>(5);
+		var results:Vector<TileMap> = new Vector<TileMap>(generator.maxTries);
 		var floorSize:Int = 0;
 		do {
 			var ffX:Int;
@@ -130,9 +130,9 @@ class CellularTileMapGenerator implements ISystem {
 			}
 
 			tries++;
-		} while(tries < 5 && floorSize / (generator.width * generator.height) < 0.4);
+		} while(tries < generator.maxTries && floorSize / (generator.width * generator.height) < generator.minTargetFloorProbability);
 
-		trace('generated with ${tries} tries (best = ${bestTry}), getting ${Math.round(100 * bestFloorSize / (generator.width * generator.height))}% coverage');
+		//trace('generated with ${tries} tries (best = ${bestTry}), getting ${Math.round(100 * bestFloorSize / (generator.width * generator.height))}% coverage');
 
 		// create a new map from the ashes
 		var tileMap:TileMap = new TileMap(generator.width, generator.height);

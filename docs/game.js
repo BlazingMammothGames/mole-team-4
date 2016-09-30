@@ -193,18 +193,6 @@ HxOverrides.cca = function(s,index) {
 	}
 	return x;
 };
-HxOverrides.substr = function(s,pos,len) {
-	if(len == null) {
-		len = s.length;
-	} else if(len < 0) {
-		if(pos == 0) {
-			len = s.length + len;
-		} else {
-			return "";
-		}
-	}
-	return s.substr(pos,len);
-};
 HxOverrides.iter = function(a) {
 	return { cur : 0, arr : a, hasNext : function() {
 		return this.cur < this.arr.length;
@@ -297,37 +285,6 @@ _$List_ListIterator.prototype = {
 };
 var StringTools = function() { };
 StringTools.__name__ = ["StringTools"];
-StringTools.isSpace = function(s,pos) {
-	var c = HxOverrides.cca(s,pos);
-	if(!(c > 8 && c < 14)) {
-		return c == 32;
-	} else {
-		return true;
-	}
-};
-StringTools.ltrim = function(s) {
-	var l = s.length;
-	var r = 0;
-	while(r < l && StringTools.isSpace(s,r)) ++r;
-	if(r > 0) {
-		return HxOverrides.substr(s,r,l - r);
-	} else {
-		return s;
-	}
-};
-StringTools.rtrim = function(s) {
-	var l = s.length;
-	var r = 0;
-	while(r < l && StringTools.isSpace(s,l - r - 1)) ++r;
-	if(r > 0) {
-		return HxOverrides.substr(s,0,l - r);
-	} else {
-		return s;
-	}
-};
-StringTools.trim = function(s) {
-	return StringTools.ltrim(StringTools.rtrim(s));
-};
 StringTools.replace = function(s,sub,by) {
 	return s.split(sub).join(by);
 };
@@ -450,7 +407,7 @@ Main.main = function() {
 		_this3.h["Play"] = value3;
 	}
 	Main.term.load().then(function(x) {
-		Main.changeUniverse("Play");
+		Main.changeUniverse("Splash");
 		Main.term.clear();
 		Timing.onUpdate = Main.onUpdate;
 		Timing.onRender = Main.onRender;
@@ -610,10 +567,12 @@ components_Camera.__interfaces__ = [edge_IComponent];
 components_Camera.prototype = {
 	__class__: components_Camera
 };
-var components_CellularTileMapGenerator = function(width,height,initialWallProbability) {
+var components_CellularTileMapGenerator = function(width,height,initialWallProbability,maxTries,minTargetFloorProbability) {
 	this.width = width;
 	this.height = height;
 	this.initialWallProbability = initialWallProbability;
+	this.maxTries = maxTries;
+	this.minTargetFloorProbability = minTargetFloorProbability;
 };
 components_CellularTileMapGenerator.__name__ = ["components","CellularTileMapGenerator"];
 components_CellularTileMapGenerator.__interfaces__ = [edge_IComponent];
@@ -630,7 +589,7 @@ components_Event.prototype = {
 };
 var components_Image = function(src) {
 	this.map = new haxe_ds_StringMap();
-	this.lines = StringTools.trim(src).split("\n");
+	this.lines = src.split("\n");
 };
 components_Image.__name__ = ["components","Image"];
 components_Image.__interfaces__ = [edge_IComponent];
@@ -1661,7 +1620,8 @@ systems_CellularTileMapGenerator.prototype = {
 		var tries = 0;
 		var bestTry = 0;
 		var bestFloorSize = 0;
-		var results = new Array(5);
+		var length = generator.maxTries;
+		var results = new Array(length);
 		var floorSize = 0;
 		while(true) {
 			var ffX;
@@ -1691,11 +1651,10 @@ systems_CellularTileMapGenerator.prototype = {
 				bestTry = tries;
 			}
 			++tries;
-			if(!(tries < 5 && floorSize / (generator.width * generator.height) < 0.4)) {
+			if(!(tries < generator.maxTries && floorSize / (generator.width * generator.height) < generator.minTargetFloorProbability)) {
 				break;
 			}
 		}
-		console.log("generated with " + tries + " tries (best = " + bestTry + "), getting " + Math.round(100 * bestFloorSize / (generator.width * generator.height)) + "% coverage");
 		var tileMap = new components_TileMap(generator.width,generator.height);
 		var _g18 = 0;
 		var _g19 = generator.height;
@@ -2860,7 +2819,7 @@ var universes_Play = function() {
 	this.update.add(new systems_IntentEvent());
 	this.update.add(new systems_ChangeUniverseEvent());
 	this.render.add(new systems_Renderer());
-	this.engine.create([new components_Position(0,0),new components_CellularTileMapGenerator(60,60,0.5)]);
+	this.engine.create([new components_Position(0,0),new components_CellularTileMapGenerator(120,60,0.5,5,0.4)]);
 	this.engine.create([new components_Position(0,0),new components_Camera(0,0,60,25),new components_PlayerControl()]);
 };
 universes_Play.__name__ = ["universes","Play"];

@@ -70,7 +70,7 @@ class Main {
         // set..
         term.load().then(function(x:Bool) {
             // go!
-            changeUniverse(universes.Play.name);
+            changeUniverse(universes.Splash.name);
             term.clear();
             Timing.onUpdate = onUpdate;
             Timing.onRender = onRender;
