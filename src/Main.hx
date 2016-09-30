@@ -95,6 +95,7 @@ class Main {
     }
 
     private static function handleInput(code:KeyCode, type:KeyEventType, shift:Bool, alt:Bool):Bool {
+        if(universe == null) return false;
         var intent:Intent = universe.input.check(code, type, shift, alt);
         if(intent != null) {
             tempIntents.push(intent);

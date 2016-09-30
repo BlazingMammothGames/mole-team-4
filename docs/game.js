@@ -463,6 +463,7 @@ Main.onUpdate = function(dt) {
 	Main.universe.update.update(dt);
 };
 Main.onRender = function(dt,alpha) {
+	Main.term.clear();
 	Main.universe.render.update(dt);
 	Main.term.render();
 	if(Main.stats != null) {
@@ -470,6 +471,9 @@ Main.onRender = function(dt,alpha) {
 	}
 };
 Main.handleInput = function(code,type,shift,alt) {
+	if(Main.universe == null) {
+		return false;
+	}
 	var intent = Main.universe.input.check(code,type,shift,alt);
 	if(intent != null) {
 		Main.tempIntents.push(intent);
@@ -2483,40 +2487,98 @@ systems_TextRenderer_$SystemProcess.prototype = {
 	}
 	,__class__: systems_TextRenderer_$SystemProcess
 };
+var systems_Rect = function(x,y,w,h) {
+	this.h = 0;
+	this.w = 0;
+	this.y = 0;
+	this.x = 0;
+	this.x = x;
+	this.y = y;
+	this.w = w;
+	this.h = h;
+};
+systems_Rect.__name__ = ["systems","Rect"];
+systems_Rect.prototype = {
+	__class__: systems_Rect
+};
+var systems_BSP = function(x,y,w,h,parent) {
+	this.childB = null;
+	this.childA = null;
+	this.parent = null;
+	this.bounds = new systems_Rect(x,y,w,h);
+	this.parent = parent;
+};
+systems_BSP.__name__ = ["systems","BSP"];
+systems_BSP.prototype = {
+	generate: function(minWidth,minHeight,maxAspect,counter) {
+		if(counter <= 0) {
+			return;
+		}
+		var x = this.bounds.x;
+		var y = this.bounds.y;
+		var w = this.bounds.w;
+		var h = this.bounds.h;
+		var ratio = w / h;
+		if((ratio > maxAspect?0:ratio < 1 / maxAspect?1:Std.random(2)) == 0) {
+			var aWidth = Std.random(w - 2 * minWidth) + minWidth;
+			var bWidth = w - aWidth;
+			if(aWidth < minWidth || bWidth < minWidth) {
+				return;
+			}
+			this.childA = new systems_BSP(x,y,aWidth,h,this);
+			this.childB = new systems_BSP(x + aWidth,y,bWidth,h,this);
+		} else {
+			var aHeight = Std.random(h - 2 * minHeight) + minHeight;
+			var bHeight = h - aHeight;
+			if(aHeight < minHeight || bHeight < minHeight) {
+				return;
+			}
+			this.childA = new systems_BSP(x,y,w,aHeight,this);
+			this.childB = new systems_BSP(x,y + aHeight,w,bHeight,this);
+		}
+		this.childA.generate(minWidth,minHeight,maxAspect,counter - 1);
+		this.childB.generate(minWidth,minHeight,maxAspect,counter - 1);
+	}
+	,buildRooms: function(minWidth,minHeight) {
+		if(this.childA != null) {
+			this.childA.buildRooms(minWidth,minHeight);
+			this.childB.buildRooms(minWidth,minHeight);
+			return;
+		}
+		var w = Std.random(this.bounds.w - minWidth) + minWidth;
+		var h = Std.random(this.bounds.h - minHeight) + minHeight;
+		this.room = new systems_Rect(Std.random(this.bounds.w - w) + this.bounds.x,Std.random(this.bounds.h - h) + this.bounds.y,w,h);
+	}
+	,__class__: systems_BSP
+};
 var systems_TileMapGenerator = function() {
 	this.__process__ = new systems_TileMapGenerator_$SystemProcess(this);
 };
 systems_TileMapGenerator.__name__ = ["systems","TileMapGenerator"];
 systems_TileMapGenerator.__interfaces__ = [edge_ISystem];
 systems_TileMapGenerator.prototype = {
-	update: function(generator) {
-		var tileMap = new components_TileMap(generator.width,generator.height);
-		var _g1 = 0;
-		var _g = generator.height;
-		while(_g1 < _g) {
-			var y = _g1++;
-			var _g3 = 0;
-			var _g2 = generator.width;
-			while(_g3 < _g2) {
-				var x = _g3++;
-				var _g4 = Std.random(3);
-				var tmp;
-				switch(_g4) {
-				case 0:
-					tmp = TTile.Floor;
-					break;
-				case 1:
-					tmp = TTile.Wall;
-					break;
-				case 2:
-					tmp = TTile.Door;
-					break;
-				default:
-					tmp = null;
-				}
-				tileMap.set(x,y,tmp);
+	renderBSP: function(node,tileMap) {
+		if(node.childA != null) {
+			this.renderBSP(node.childA,tileMap);
+			this.renderBSP(node.childB,tileMap);
+		}
+		if(node.room != null) {
+			var _g1 = node.room.y;
+			var _g = node.room.y + node.room.h;
+			while(_g1 < _g) {
+				var y = _g1++;
+				var _g3 = node.room.x;
+				var _g2 = node.room.x + node.room.w;
+				while(_g3 < _g2) tileMap.set(_g3++,y,TTile.Floor);
 			}
 		}
+	}
+	,update: function(generator) {
+		var tileMap = new components_TileMap(generator.width,generator.height);
+		var root = new systems_BSP(0,0,generator.width,generator.height,null);
+		root.generate(7,7,3,30);
+		root.buildRooms(3,3);
+		this.renderBSP(root,tileMap);
 		this.entity.remove(generator);
 		this.entity.add(tileMap);
 		return true;
@@ -2695,7 +2757,7 @@ var universes_Play = function() {
 	this.update.add(new systems_IntentEvent());
 	this.update.add(new systems_ChangeUniverseEvent());
 	this.render.add(new systems_Renderer());
-	this.engine.create([new components_Position(0,0),new components_TileMapGeneration(80,30)]);
+	this.engine.create([new components_Position(0,0),new components_TileMapGeneration(60,25)]);
 	this.engine.create([new components_Position(0,0),new components_Camera(0,0,60,25),new components_PlayerControl()]);
 };
 universes_Play.__name__ = ["universes","Play"];
@@ -2714,8 +2776,8 @@ var universes_Splash = function() {
 	this.update.add(new systems_ChangeUniverseEvent());
 	this.render.add(new systems_ImageRenderer());
 	this.render.add(new systems_TextRenderer());
-	this.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.3939393939393945)]);
-	this.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.3939393939393945),new components_Bounds().y(12,100)]);
+	this.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.393939393939394)]);
+	this.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.393939393939394),new components_Bounds().y(12,100)]);
 	this.engine.create([new components_Sound("blazingmammothgames.ogg",true,false)]);
 	this.engine.create([new components_Timer(5,TEvent.ChangeUniverse("Intro"))]);
 	this.engine.create([new components_IntentEvent(Intent.Skip,TEvent.ChangeUniverse("Intro"))]);
@@ -3091,7 +3153,7 @@ Bool.__ename__ = ["Bool"];
 var Class = { __name__ : ["Class"]};
 var Enum = { };
 var global = window;
-Logo.src = StringTools.replace("                         .        \n                         ..       \n             .            ..      \n            ..            ..      \n           ..            ...      \n           ..      .   .....      \n     .     ...    ..  .....       \n     ...    .... .... ....        \n     ....  ...............        \n      ... ...::...::..:..         \n      ......::######::...         \n       .:..::##++++##:..          \n       ..:::##++++++##..    .     \n       ...::#++####++#...  ..     \n        ...:#++####++#:..  ..     \n   .    ..::#+++##+++#:.. ...     \n   ...  ..::#+++##+++#::....      \n ###... ..::##++##++##::....  ### \n##+#......::%##++++##:::...   #+## \n#++#.....:::%%#++++#%::...    #++# \n#+## ..::::%%%#++++#%::..   . ##+# \n#+#  ...::%%%%#++++#%%:.. ...  #+# \n#+## ..:::%%%##++++##::.....  ##+# \n#++##...:::%%#++++++#:::.... ##++# \n#+++# ...:::##++##++##:::..  #+++# \n##++###..:###++####++###...###++## \n ##+++#####++++#%%#++++#####+++## \n  ##++++#+++++##%%##+++++#++++##  \n   ##+++++++###%:::###+++++++##   \n    ###+++###..:.....###+++###    \n      #####   ...      #####      \n      #####   ...      #####      ","\r","");
+Logo.src = StringTools.replace("                         .        \r\n                         ..       \r\n             .            ..      \r\n            ..            ..      \r\n           ..            ...      \r\n           ..      .   .....      \r\n     .     ...    ..  .....       \r\n     ...    .... .... ....        \r\n     ....  ...............        \r\n      ... ...::...::..:..         \r\n      ......::######::...         \r\n       .:..::##++++##:..          \r\n       ..:::##++++++##..    .     \r\n       ...::#++####++#...  ..     \r\n        ...:#++####++#:..  ..     \r\n   .    ..::#+++##+++#:.. ...     \r\n   ...  ..::#+++##+++#::....      \r\n ###... ..::##++##++##::....  ### \r\n##+#......::%##++++##:::...   #+## \r\n#++#.....:::%%#++++#%::...    #++# \r\n#+## ..::::%%%#++++#%::..   . ##+# \r\n#+#  ...::%%%%#++++#%%:.. ...  #+# \r\n#+## ..:::%%%##++++##::.....  ##+# \r\n#++##...:::%%#++++++#:::.... ##++# \r\n#+++# ...:::##++##++##:::..  #+++# \r\n##++###..:###++####++###...###++## \r\n ##+++#####++++#%%#++++#####+++## \r\n  ##++++#+++++##%%##+++++#++++##  \r\n   ##+++++++###%:::###+++++++##   \r\n    ###+++###..:.....###+++###    \r\n      #####   ...      #####      \r\n      #####   ...      #####      ","\r","");
 Main.console = window.console;
 Main._universes = new haxe_ds_StringMap();
 Main.intents = [];
@@ -3100,7 +3162,7 @@ Timing.animationFrameID = 0;
 Timing.time = 0;
 Timing.lastTime = 0;
 Timing.accumulator = 0;
-Timing.dt = 0.0333333333333333329;
+Timing.dt = 0.033333333333333333;
 Timing.alpha = 0;
 haxe_ds_ObjectMap.count = 0;
 js_Boot.__toStr = { }.toString;
