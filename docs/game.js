@@ -2499,9 +2499,16 @@ var systems_Rect = function(x,y,w,h) {
 };
 systems_Rect.__name__ = ["systems","Rect"];
 systems_Rect.prototype = {
-	__class__: systems_Rect
+	get_xmax: function() {
+		return this.x + this.w;
+	}
+	,get_ymax: function() {
+		return this.y + this.h;
+	}
+	,__class__: systems_Rect
 };
 var systems_BSP = function(x,y,w,h,parent) {
+	this.sibling = null;
 	this.childB = null;
 	this.childA = null;
 	this.parent = null;
@@ -2536,6 +2543,8 @@ systems_BSP.prototype = {
 			this.childA = new systems_BSP(x,y,w,aHeight,this);
 			this.childB = new systems_BSP(x,y + aHeight,w,bHeight,this);
 		}
+		this.childA.sibling = this.childB;
+		this.childB.sibling = this.childA;
 		this.childA.generate(minWidth,minHeight,maxAspect,counter - 1);
 		this.childB.generate(minWidth,minHeight,maxAspect,counter - 1);
 	}
@@ -2548,6 +2557,35 @@ systems_BSP.prototype = {
 		var w = Std.random(this.bounds.w - minWidth) + minWidth;
 		var h = Std.random(this.bounds.h - minHeight) + minHeight;
 		this.room = new systems_Rect(Std.random(this.bounds.w - w) + this.bounds.x,Std.random(this.bounds.h - h) + this.bounds.y,w,h);
+	}
+	,buildCorridors: function() {
+		if(this.childA == null) {
+			if(this.room == null || this.sibling.room == null) {
+				return;
+			}
+			var xMin = this.sibling.room.x > this.room.x?this.sibling.room.x:this.room.x;
+			var xMax = this.sibling.room.get_xmax() < this.room.get_xmax()?this.sibling.room.get_xmax():this.room.get_xmax();
+			var yMin = this.sibling.room.y > this.room.y?this.sibling.room.y:this.room.y;
+			var yMax = this.sibling.room.get_ymax() < this.room.get_ymax()?this.sibling.room.get_ymax():this.room.get_ymax();
+			if(xMax - xMin > 0) {
+				var x = Std.random(xMax - xMin) + xMin;
+				var y = this.sibling.room.y < this.room.y?this.sibling.room.get_ymax():this.room.get_ymax();
+				var y1 = this.sibling.room.y < this.room.y?this.room.y:this.sibling.room.y;
+				console.log("Building vertical corridor at x=" + x + ", from y=" + y + "--" + y1);
+				this.parent.corridor = new systems_Rect(x,y,1,y1 - y);
+			} else if(yMax - yMin > 0) {
+				var y2 = Std.random(yMax - yMin) + yMin;
+				var x1 = this.sibling.room.x < this.room.x?this.sibling.room.get_xmax():this.room.get_xmax();
+				var x11 = this.sibling.room.x < this.room.x?this.room.x:this.sibling.room.x;
+				console.log("horizontal vertical corridor at y=" + y2 + ", from x=" + x1 + "--" + x11);
+				this.parent.corridor = new systems_Rect(x1,y2,x11 - x1,1);
+			} else {
+				console.log("unhandled corridor matching!");
+			}
+		} else {
+			this.childA.buildCorridors();
+			this.childB.buildCorridors();
+		}
 	}
 	,__class__: systems_BSP
 };
@@ -2572,12 +2610,23 @@ systems_TileMapGenerator.prototype = {
 				while(_g3 < _g2) tileMap.set(_g3++,y,TTile.Floor);
 			}
 		}
+		if(node.corridor != null) {
+			var _g11 = node.corridor.y;
+			var _g4 = node.corridor.y + node.corridor.h;
+			while(_g11 < _g4) {
+				var y1 = _g11++;
+				var _g31 = node.corridor.x;
+				var _g21 = node.corridor.x + node.corridor.w;
+				while(_g31 < _g21) tileMap.set(_g31++,y1,TTile.Door);
+			}
+		}
 	}
 	,update: function(generator) {
 		var tileMap = new components_TileMap(generator.width,generator.height);
 		var root = new systems_BSP(0,0,generator.width,generator.height,null);
 		root.generate(7,7,3,30);
 		root.buildRooms(3,3);
+		root.buildCorridors();
 		this.renderBSP(root,tileMap);
 		this.entity.remove(generator);
 		this.entity.add(tileMap);
