@@ -6,4 +6,9 @@ enum Intent {
     Next;
     Previous;
     Select;
+
+    Up;
+    Right;
+    Down;
+    Left;
 }

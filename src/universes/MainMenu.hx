@@ -22,6 +22,7 @@ class MainMenu extends Universe {
 
         update.add(new systems.Menu());
         update.add(new systems.DebugEvent());
+        update.add(new systems.ChangeUniverseEvent());
         render.add(new systems.TextRenderer());
 
         engine.create([
@@ -39,7 +40,7 @@ class MainMenu extends Universe {
         engine.create([
         	new components.Text("Start"),
         	new components.Position(3, 3),
-        	new components.MenuItem(0, TEvent.DebugMessage("TODO: handle 'Start' action!"))
+        	new components.MenuItem(0, TEvent.ChangeUniverse(Play.name))
         ]);
 
         engine.create([

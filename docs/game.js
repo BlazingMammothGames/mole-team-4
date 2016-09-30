@@ -193,6 +193,18 @@ HxOverrides.cca = function(s,index) {
 	}
 	return x;
 };
+HxOverrides.substr = function(s,pos,len) {
+	if(len == null) {
+		len = s.length;
+	} else if(len < 0) {
+		if(pos == 0) {
+			len = s.length + len;
+		} else {
+			return "";
+		}
+	}
+	return s.substr(pos,len);
+};
 HxOverrides.iter = function(a) {
 	return { cur : 0, arr : a, hasNext : function() {
 		return this.cur < this.arr.length;
@@ -200,7 +212,7 @@ HxOverrides.iter = function(a) {
 		return this.arr[this.cur++];
 	}};
 };
-var Intent = { __ename__ : true, __constructs__ : ["Skip","Next","Previous","Select"] };
+var Intent = { __ename__ : true, __constructs__ : ["Skip","Next","Previous","Select","Up","Right","Down","Left"] };
 Intent.Skip = ["Skip",0];
 Intent.Skip.toString = $estr;
 Intent.Skip.__enum__ = Intent;
@@ -213,6 +225,18 @@ Intent.Previous.__enum__ = Intent;
 Intent.Select = ["Select",3];
 Intent.Select.toString = $estr;
 Intent.Select.__enum__ = Intent;
+Intent.Up = ["Up",4];
+Intent.Up.toString = $estr;
+Intent.Up.__enum__ = Intent;
+Intent.Right = ["Right",5];
+Intent.Right.toString = $estr;
+Intent.Right.__enum__ = Intent;
+Intent.Down = ["Down",6];
+Intent.Down.toString = $estr;
+Intent.Down.__enum__ = Intent;
+Intent.Left = ["Left",7];
+Intent.Left.toString = $estr;
+Intent.Left.__enum__ = Intent;
 var List = function() {
 	this.length = 0;
 };
@@ -273,6 +297,37 @@ _$List_ListIterator.prototype = {
 };
 var StringTools = function() { };
 StringTools.__name__ = ["StringTools"];
+StringTools.isSpace = function(s,pos) {
+	var c = HxOverrides.cca(s,pos);
+	if(!(c > 8 && c < 14)) {
+		return c == 32;
+	} else {
+		return true;
+	}
+};
+StringTools.ltrim = function(s) {
+	var l = s.length;
+	var r = 0;
+	while(r < l && StringTools.isSpace(s,r)) ++r;
+	if(r > 0) {
+		return HxOverrides.substr(s,r,l - r);
+	} else {
+		return s;
+	}
+};
+StringTools.rtrim = function(s) {
+	var l = s.length;
+	var r = 0;
+	while(r < l && StringTools.isSpace(s,l - r - 1)) ++r;
+	if(r > 0) {
+		return HxOverrides.substr(s,0,l - r);
+	} else {
+		return s;
+	}
+};
+StringTools.trim = function(s) {
+	return StringTools.ltrim(StringTools.rtrim(s));
+};
 StringTools.replace = function(s,sub,by) {
 	return s.split(sub).join(by);
 };
@@ -387,13 +442,20 @@ Main.main = function() {
 	} else {
 		_this2.h["MainMenu"] = value2;
 	}
+	var _this3 = Main._universes;
+	var value3 = new universes_Play();
+	if(__map_reserved.Play != null) {
+		_this3.setReserved("Play",value3);
+	} else {
+		_this3.h["Play"] = value3;
+	}
 	Main.term.load().then(function(x) {
-		Main.changeUniverse("Splash");
+		Main.changeUniverse("Play");
 		Main.term.clear();
 		Timing.onUpdate = Main.onUpdate;
 		Timing.onRender = Main.onRender;
 		Timing.start();
-	},{ fileName : "Main.hx", lineNumber : 70, className : "Main", methodName : "main"});
+	},{ fileName : "Main.hx", lineNumber : 71, className : "Main", methodName : "main"});
 };
 Main.onUpdate = function(dt) {
 	Main.intents = Main.tempIntents;
@@ -401,7 +463,6 @@ Main.onUpdate = function(dt) {
 	Main.universe.update.update(dt);
 };
 Main.onRender = function(dt,alpha) {
-	Main.term.clear();
 	Main.universe.render.update(dt);
 	Main.term.render();
 	if(Main.stats != null) {
@@ -434,9 +495,26 @@ Std.__name__ = ["Std"];
 Std.string = function(s) {
 	return js_Boot.__string_rec(s,"");
 };
+Std.random = function(x) {
+	if(x <= 0) {
+		return 0;
+	} else {
+		return Math.floor(Math.random() * x);
+	}
+};
 var TEvent = { __ename__ : true, __constructs__ : ["DebugMessage","ChangeUniverse"] };
 TEvent.DebugMessage = function(message) { var $x = ["DebugMessage",0,message]; $x.__enum__ = TEvent; $x.toString = $estr; return $x; };
 TEvent.ChangeUniverse = function(verse) { var $x = ["ChangeUniverse",1,verse]; $x.__enum__ = TEvent; $x.toString = $estr; return $x; };
+var TTile = { __ename__ : true, __constructs__ : ["Floor","Wall","Door"] };
+TTile.Floor = ["Floor",0];
+TTile.Floor.toString = $estr;
+TTile.Floor.__enum__ = TTile;
+TTile.Wall = ["Wall",1];
+TTile.Wall.toString = $estr;
+TTile.Wall.__enum__ = TTile;
+TTile.Door = ["Door",2];
+TTile.Door.toString = $estr;
+TTile.Door.__enum__ = TTile;
 var Timing = function() { };
 Timing.__name__ = ["Timing"];
 Timing.onRenderFrame = function(ts) {
@@ -514,6 +592,17 @@ components_Bounds.prototype = {
 	}
 	,__class__: components_Bounds
 };
+var components_Camera = function(x,y,width,height) {
+	this.viewportX = x;
+	this.viewportY = y;
+	this.width = width;
+	this.height = height;
+};
+components_Camera.__name__ = ["components","Camera"];
+components_Camera.__interfaces__ = [edge_IComponent];
+components_Camera.prototype = {
+	__class__: components_Camera
+};
 var components_Event = function(event) {
 	this.event = event;
 };
@@ -524,7 +613,7 @@ components_Event.prototype = {
 };
 var components_Image = function(src) {
 	this.map = new haxe_ds_StringMap();
-	this.lines = src.split("\n");
+	this.lines = StringTools.trim(src).split("\n");
 };
 components_Image.__name__ = ["components","Image"];
 components_Image.__interfaces__ = [edge_IComponent];
@@ -572,6 +661,13 @@ components_MenuSelector.prototype = {
 	}
 	,__class__: components_MenuSelector
 };
+var components_PlayerControl = function() {
+};
+components_PlayerControl.__name__ = ["components","PlayerControl"];
+components_PlayerControl.__interfaces__ = [edge_IComponent];
+components_PlayerControl.prototype = {
+	__class__: components_PlayerControl
+};
 var components_Position = function(x,y,z) {
 	if(z == null) {
 		z = 0;
@@ -614,6 +710,38 @@ components_Text.__name__ = ["components","Text"];
 components_Text.__interfaces__ = [edge_IComponent];
 components_Text.prototype = {
 	__class__: components_Text
+};
+var components_TileMap = function(width,height) {
+	this.width = width;
+	this.height = height;
+	this.map = new Array(height);
+	var _g1 = 0;
+	var _g = height;
+	while(_g1 < _g) {
+		var y = _g1++;
+		this.map[y] = new Array(width);
+		var _g3 = 0;
+		var _g2 = width;
+		while(_g3 < _g2) this.map[y][_g3++] = TTile.Wall;
+	}
+};
+components_TileMap.__name__ = ["components","TileMap"];
+components_TileMap.__interfaces__ = [edge_IComponent];
+components_TileMap.prototype = {
+	set: function(x,y,tile) {
+		this.map[y][x] = tile;
+		return this;
+	}
+	,__class__: components_TileMap
+};
+var components_TileMapGeneration = function(width,height) {
+	this.width = width;
+	this.height = height;
+};
+components_TileMapGeneration.__name__ = ["components","TileMapGeneration"];
+components_TileMapGeneration.__interfaces__ = [edge_IComponent];
+components_TileMapGeneration.prototype = {
+	__class__: components_TileMapGeneration
 };
 var components_Timer = function(time,event) {
 	this.time = time;
@@ -703,7 +831,14 @@ var edge_Entity = function(engine,components) {
 };
 edge_Entity.__name__ = ["edge","Entity"];
 edge_Entity.prototype = {
-	addMany: function(components) {
+	add: function(component) {
+		if(null == this.engine) {
+			return;
+		}
+		this._add(component);
+		this.engine.matchSystems(this);
+	}
+	,addMany: function(components) {
 		var _gthis = this;
 		if(null == this.engine) {
 			return;
@@ -1964,6 +2099,226 @@ systems_Menu_$SystemProcess.prototype = {
 	}
 	,__class__: systems_Menu_$SystemProcess
 };
+var systems_PlayerMovement = function() {
+	this.__process__ = new systems_PlayerMovement_$SystemProcess(this);
+};
+systems_PlayerMovement.__name__ = ["systems","PlayerMovement"];
+systems_PlayerMovement.__interfaces__ = [edge_ISystem];
+systems_PlayerMovement.prototype = {
+	update: function(pos,control) {
+		if(Main.intended(Intent.Up)) {
+			pos.y--;
+		}
+		if(Main.intended(Intent.Right)) {
+			pos.x++;
+		}
+		if(Main.intended(Intent.Down)) {
+			pos.y++;
+		}
+		if(Main.intended(Intent.Left)) {
+			pos.x--;
+		}
+		return true;
+	}
+	,__class__: systems_PlayerMovement
+};
+var systems_PlayerMovement_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_PlayerMovement_$SystemProcess.__name__ = ["systems","PlayerMovement_SystemProcess"];
+systems_PlayerMovement_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_PlayerMovement_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			data = tmp.next().data;
+			result = this.system.update(data.pos,data.control);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 2;
+		var o = { pos : null, control : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+			if(js_Boot.__instanceof(component,components_PlayerControl)) {
+				o.control = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_PlayerMovement_$SystemProcess
+};
+var systems_Renderer = function() {
+	this.doorGlyph = new vellum_Glyph(HxOverrides.cca("H",0),"rgb(190, 150, 100)","rgb(100, 64, 32)");
+	this.wallGlyph = new vellum_Glyph(HxOverrides.cca("#",0),"#000","rgb(100, 64, 32)");
+	this.floorGlyph = new vellum_Glyph(HxOverrides.cca(" ",0),"#fff","rgb(100, 64, 32)");
+	this.clearGlyph = new vellum_Glyph(HxOverrides.cca(" ",0),"#000","#000");
+	this.__process__ = new systems_Renderer_$SystemProcess(this);
+};
+systems_Renderer.__name__ = ["systems","Renderer"];
+systems_Renderer.__interfaces__ = [edge_ISystem];
+systems_Renderer.prototype = {
+	update: function(pos,cam) {
+		var tmp = this.tileMaps.iterator();
+		while(tmp.hasNext()) {
+			var tileMap = tmp.next();
+			var _g1 = 0;
+			var _g = cam.height;
+			while(_g1 < _g) {
+				var cy = _g1++;
+				var _g3 = 0;
+				var _g2 = cam.width;
+				while(_g3 < _g2) {
+					var cx = _g3++;
+					var x = cx + (pos.x | 0);
+					var y = cy + (pos.y | 0);
+					if(x < 0 || y < 0 || x >= tileMap.data.tiles.width || y >= tileMap.data.tiles.height) {
+						Main.term.drawGlyph(cx + cam.viewportX,cy + cam.viewportY,this.clearGlyph);
+						continue;
+					}
+					var tmp1 = cx + cam.viewportX;
+					var tmp2 = cy + cam.viewportY;
+					var _g4 = tileMap.data.tiles.map[y][x];
+					var tmp3;
+					switch(_g4[1]) {
+					case 0:
+						tmp3 = this.floorGlyph;
+						break;
+					case 1:
+						tmp3 = this.wallGlyph;
+						break;
+					case 2:
+						tmp3 = this.doorGlyph;
+						break;
+					}
+					Main.term.drawGlyph(tmp1,tmp2,tmp3);
+				}
+			}
+		}
+		return true;
+	}
+	,__class__: systems_Renderer
+};
+var systems_Renderer_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+	system.tileMaps = new edge_View();
+};
+systems_Renderer_$SystemProcess.__name__ = ["systems","Renderer_SystemProcess"];
+systems_Renderer_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_Renderer_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+		this.system.tileMaps.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.tileMapsMatchRequirements(entity);
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			data = tmp.next().data;
+			result = this.system.update(data.pos,data.cam);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,tileMapsMatchRequirements: function(entity) {
+		this.system.tileMaps.tryRemove(entity);
+		var count = 2;
+		var o = { tiles : null, pos : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_TileMap)) {
+				o.tiles = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+		}
+		if(count == 0) {
+			this.system.tileMaps.tryAdd(entity,o);
+		}
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 2;
+		var o = { pos : null, cam : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_Position)) {
+				o.pos = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+			if(js_Boot.__instanceof(component,components_Camera)) {
+				o.cam = component;
+				if(--count == 0) {
+					break;
+				} else {
+					continue;
+				}
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_Renderer_$SystemProcess
+};
 var systems_Sound = function(universe) {
 	Pauseable.call(this,universe);
 	this.__process__ = new systems_Sound_$SystemProcess(this);
@@ -2128,6 +2483,94 @@ systems_TextRenderer_$SystemProcess.prototype = {
 	}
 	,__class__: systems_TextRenderer_$SystemProcess
 };
+var systems_TileMapGenerator = function() {
+	this.__process__ = new systems_TileMapGenerator_$SystemProcess(this);
+};
+systems_TileMapGenerator.__name__ = ["systems","TileMapGenerator"];
+systems_TileMapGenerator.__interfaces__ = [edge_ISystem];
+systems_TileMapGenerator.prototype = {
+	update: function(generator) {
+		var tileMap = new components_TileMap(generator.width,generator.height);
+		var _g1 = 0;
+		var _g = generator.height;
+		while(_g1 < _g) {
+			var y = _g1++;
+			var _g3 = 0;
+			var _g2 = generator.width;
+			while(_g3 < _g2) {
+				var x = _g3++;
+				var _g4 = Std.random(3);
+				var tmp;
+				switch(_g4) {
+				case 0:
+					tmp = TTile.Floor;
+					break;
+				case 1:
+					tmp = TTile.Wall;
+					break;
+				case 2:
+					tmp = TTile.Door;
+					break;
+				default:
+					tmp = null;
+				}
+				tileMap.set(x,y,tmp);
+			}
+		}
+		this.entity.remove(generator);
+		this.entity.add(tileMap);
+		return true;
+	}
+	,__class__: systems_TileMapGenerator
+};
+var systems_TileMapGenerator_$SystemProcess = function(system) {
+	this.system = system;
+	this.updateItems = new edge_View();
+};
+systems_TileMapGenerator_$SystemProcess.__name__ = ["systems","TileMapGenerator_SystemProcess"];
+systems_TileMapGenerator_$SystemProcess.__interfaces__ = [edge_core_ISystemProcess];
+systems_TileMapGenerator_$SystemProcess.prototype = {
+	removeEntity: function(entity) {
+		this.updateItems.tryRemove(entity);
+	}
+	,addEntity: function(entity) {
+		this.updateMatchRequirements(entity);
+	}
+	,update: function(engine,delta) {
+		var result = true;
+		var data;
+		var tmp = this.updateItems.iterator();
+		while(tmp.hasNext()) {
+			var item = tmp.next();
+			this.system.entity = item.entity;
+			data = item.data;
+			result = this.system.update(data.generator);
+			if(!result) {
+				break;
+			}
+		}
+		return result;
+	}
+	,updateMatchRequirements: function(entity) {
+		this.updateItems.tryRemove(entity);
+		var count = 1;
+		var o = { generator : null};
+		var _this = entity.map;
+		var tmp = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
+		while(tmp.hasNext()) {
+			var component = tmp.next();
+			if(js_Boot.__instanceof(component,components_TileMapGeneration)) {
+				o.generator = component;
+				count = 0;
+				break;
+			}
+		}
+		if(count == 0) {
+			this.updateItems.tryAdd(entity,o);
+		}
+	}
+	,__class__: systems_TileMapGenerator_$SystemProcess
+};
 var systems_Timer = function() {
 	this.__process__ = new systems_Timer_$SystemProcess(this);
 };
@@ -2227,10 +2670,11 @@ var universes_MainMenu = function() {
 	this.input.bind(new vellum_KeyBind(68,vellum_KeyEventType.DOWN),Intent.Next);
 	this.update.add(new systems_Menu());
 	this.update.add(new systems_DebugEvent());
+	this.update.add(new systems_ChangeUniverseEvent());
 	this.render.add(new systems_TextRenderer());
 	this.engine.create([new components_Text("== Main Menu ==","rgb(255, 192, 0)"),new components_Position((Main.term.get_width() - 15) / 2,1)]);
 	this.engine.create([new components_Text(">","rgb(255, 192, 0)"),new components_MenuSelector(0).setOffset(-2,0),new components_Position(0,0)]);
-	this.engine.create([new components_Text("Start"),new components_Position(3,3),new components_MenuItem(0,TEvent.DebugMessage("TODO: handle 'Start' action!"))]);
+	this.engine.create([new components_Text("Start"),new components_Position(3,3),new components_MenuItem(0,TEvent.ChangeUniverse("Play"))]);
 	this.engine.create([new components_Text("Options"),new components_Position(3,4),new components_MenuItem(1,TEvent.DebugMessage("TODO: handle 'Options' action!"))]);
 	this.engine.create([new components_Text("Credits"),new components_Position(3,5),new components_MenuItem(2,TEvent.DebugMessage("TODO: handle 'Credits' action!"))]);
 	this.engine.create([new components_Text("Quit"),new components_Position(Main.term.get_width() - 6,Main.term.get_height() - 2),new components_MenuItem(3,TEvent.DebugMessage("TODO: handle 'Quit' action!"))]);
@@ -2239,6 +2683,25 @@ universes_MainMenu.__name__ = ["universes","MainMenu"];
 universes_MainMenu.__super__ = Universe;
 universes_MainMenu.prototype = $extend(Universe.prototype,{
 	__class__: universes_MainMenu
+});
+var universes_Play = function() {
+	Universe.call(this);
+	this.input.bind(new vellum_KeyBind(38,vellum_KeyEventType.DOWN),Intent.Up);
+	this.input.bind(new vellum_KeyBind(39,vellum_KeyEventType.DOWN),Intent.Right);
+	this.input.bind(new vellum_KeyBind(40,vellum_KeyEventType.DOWN),Intent.Down);
+	this.input.bind(new vellum_KeyBind(37,vellum_KeyEventType.DOWN),Intent.Left);
+	this.update.add(new systems_TileMapGenerator());
+	this.update.add(new systems_PlayerMovement());
+	this.update.add(new systems_IntentEvent());
+	this.update.add(new systems_ChangeUniverseEvent());
+	this.render.add(new systems_Renderer());
+	this.engine.create([new components_Position(0,0),new components_TileMapGeneration(80,30)]);
+	this.engine.create([new components_Position(0,0),new components_Camera(0,0,60,25),new components_PlayerControl()]);
+};
+universes_Play.__name__ = ["universes","Play"];
+universes_Play.__super__ = Universe;
+universes_Play.prototype = $extend(Universe.prototype,{
+	__class__: universes_Play
 });
 var universes_Splash = function() {
 	Universe.call(this);
@@ -2251,8 +2714,8 @@ var universes_Splash = function() {
 	this.update.add(new systems_ChangeUniverseEvent());
 	this.render.add(new systems_ImageRenderer());
 	this.render.add(new systems_TextRenderer());
-	this.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.393939393939394)]);
-	this.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.393939393939394),new components_Bounds().y(12,100)]);
+	this.engine.create([new components_Image(Logo.src).addMap(".",HxOverrides.cca("#",0),"rgb(220, 0, 0)").addMap(":",HxOverrides.cca("#",0),"rgb(255, 128, 0)").addMap("%",HxOverrides.cca("#",0),"rgb(255, 255, 0)").addMap("#",HxOverrides.cca("#",0),"rgb(64, 64, 64)").addMap("+",HxOverrides.cca("#",0),"#fff"),new components_Position(23,25),new components_Velocity(0,-19.3939393939393945)]);
+	this.engine.create([new components_Text("Blazing Mammoth Games","rgb(255, 192, 0)"),new components_Position(29.5,60),new components_Velocity(0,-19.3939393939393945),new components_Bounds().y(12,100)]);
 	this.engine.create([new components_Sound("blazingmammothgames.ogg",true,false)]);
 	this.engine.create([new components_Timer(5,TEvent.ChangeUniverse("Intro"))]);
 	this.engine.create([new components_IntentEvent(Intent.Skip,TEvent.ChangeUniverse("Intro"))]);
@@ -2628,7 +3091,7 @@ Bool.__ename__ = ["Bool"];
 var Class = { __name__ : ["Class"]};
 var Enum = { };
 var global = window;
-Logo.src = StringTools.replace("                         .        \r\n                         ..       \r\n             .            ..      \r\n            ..            ..      \r\n           ..            ...      \r\n           ..      .   .....      \r\n     .     ...    ..  .....       \r\n     ...    .... .... ....        \r\n     ....  ...............        \r\n      ... ...::...::..:..         \r\n      ......::######::...         \r\n       .:..::##++++##:..          \r\n       ..:::##++++++##..    .     \r\n       ...::#++####++#...  ..     \r\n        ...:#++####++#:..  ..     \r\n   .    ..::#+++##+++#:.. ...     \r\n   ...  ..::#+++##+++#::....      \r\n ###... ..::##++##++##::....  ### \r\n##+#......::%##++++##:::...   #+## \r\n#++#.....:::%%#++++#%::...    #++# \r\n#+## ..::::%%%#++++#%::..   . ##+# \r\n#+#  ...::%%%%#++++#%%:.. ...  #+# \r\n#+## ..:::%%%##++++##::.....  ##+# \r\n#++##...:::%%#++++++#:::.... ##++# \r\n#+++# ...:::##++##++##:::..  #+++# \r\n##++###..:###++####++###...###++## \r\n ##+++#####++++#%%#++++#####+++## \r\n  ##++++#+++++##%%##+++++#++++##  \r\n   ##+++++++###%:::###+++++++##   \r\n    ###+++###..:.....###+++###    \r\n      #####   ...      #####      \r\n      #####   ...      #####      ","\r","");
+Logo.src = StringTools.replace("                         .        \n                         ..       \n             .            ..      \n            ..            ..      \n           ..            ...      \n           ..      .   .....      \n     .     ...    ..  .....       \n     ...    .... .... ....        \n     ....  ...............        \n      ... ...::...::..:..         \n      ......::######::...         \n       .:..::##++++##:..          \n       ..:::##++++++##..    .     \n       ...::#++####++#...  ..     \n        ...:#++####++#:..  ..     \n   .    ..::#+++##+++#:.. ...     \n   ...  ..::#+++##+++#::....      \n ###... ..::##++##++##::....  ### \n##+#......::%##++++##:::...   #+## \n#++#.....:::%%#++++#%::...    #++# \n#+## ..::::%%%#++++#%::..   . ##+# \n#+#  ...::%%%%#++++#%%:.. ...  #+# \n#+## ..:::%%%##++++##::.....  ##+# \n#++##...:::%%#++++++#:::.... ##++# \n#+++# ...:::##++##++##:::..  #+++# \n##++###..:###++####++###...###++## \n ##+++#####++++#%%#++++#####+++## \n  ##++++#+++++##%%##+++++#++++##  \n   ##+++++++###%:::###+++++++##   \n    ###+++###..:.....###+++###    \n      #####   ...      #####      \n      #####   ...      #####      ","\r","");
 Main.console = window.console;
 Main._universes = new haxe_ds_StringMap();
 Main.intents = [];
@@ -2637,7 +3100,7 @@ Timing.animationFrameID = 0;
 Timing.time = 0;
 Timing.lastTime = 0;
 Timing.accumulator = 0;
-Timing.dt = 0.033333333333333333;
+Timing.dt = 0.0333333333333333329;
 Timing.alpha = 0;
 haxe_ds_ObjectMap.count = 0;
 js_Boot.__toStr = { }.toString;

@@ -65,11 +65,12 @@ class Main {
         _universes.set(universes.Splash.name, new universes.Splash());
         _universes.set(universes.Intro.name, new universes.Intro());
         _universes.set(universes.MainMenu.name, new universes.MainMenu());
+        _universes.set(universes.Play.name, new universes.Play());
 
         // set..
         term.load().then(function(x:Bool) {
             // go!
-            changeUniverse(universes.Splash.name);
+            changeUniverse(universes.Play.name);
             term.clear();
             Timing.onUpdate = onUpdate;
             Timing.onRender = onRender;
